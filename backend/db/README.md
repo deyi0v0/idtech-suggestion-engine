@@ -1,0 +1,1 @@
+Run init_db.py ONCE to set up the tables.
