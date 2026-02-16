@@ -2,7 +2,7 @@
 function App() {
   return (
     <div>
-      <h1>IDTECH Product Advisor</h1>
+      <h1>IDTECH Suggestion Engine</h1>
     </div>
   );
 }
