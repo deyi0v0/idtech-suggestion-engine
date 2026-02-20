@@ -40,3 +40,14 @@ To rebuild the `product_db` database in the Docker container using the schema de
     Then, set up database connection through IntelliJ. 
     ```
     You should see a list of tables including `hardware`, `categories`, `use_cases`, `hardware_category_map`, and `hardware_use_case_map`.
+
+# Install MinerU to extract information in PDFs
+    1. activate virtual machine
+    2. download all dependencies for mineru:    
+        pip install -U "mineru[all]"
+
+    3. run this to extract information:
+    for file in "FOLDER_PATH_OF_DEVICES_PDFS"*.pdf; do
+        echo "Processing: $file"
+        mineru -p "$file" -o "./raw_extraction" -m auto
+    done
