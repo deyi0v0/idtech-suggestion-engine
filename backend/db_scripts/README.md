@@ -41,6 +41,10 @@ To rebuild the `product_db` database in the Docker container using the schema de
     ```
     You should see a list of tables including `hardware`, `categories`, `use_cases`, `hardware_category_map`, and `hardware_use_case_map`.
 
+
+# Run test_queries.sql
+    docker exec -it backend-db-1 psql -U admin -d product_db -P pager=off -f /docker-entrypoint-initdb.d/test_queries.sql    press p to see next result
+
 # Install MinerU to extract information in PDFs
     1. activate virtual machine
     2. download all dependencies for mineru:    
