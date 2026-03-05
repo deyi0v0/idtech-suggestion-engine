@@ -61,7 +61,7 @@ export default function SampleChat() {
     }
 
     return (
-        <div>
+        <div className="max-w-100">
             <div className="flex-row">
                 {messages.map((message) => {
                     if (message.author != 'system') {
@@ -77,7 +77,7 @@ export default function SampleChat() {
                 <input 
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
-                    className="border-2 grow rounded-2xl" 
+                    className="border-2 grow rounded-2xl bg-[#313131] text-[#FFFFFF]" 
                     placeholder="Start typing..." />
                 <button type="submit" className="bg-gray-400 rounded-2xl p-2">submit</button>
             </form>

@@ -2,8 +2,8 @@ import SampleChat from "./components/SampleChat"
 
 function App() {
   return (
-    <div>
-      <h1 className="text-center">IDTECH Suggestion Engine</h1>
+    <div className="flex flex-col items-center">
+      <h1 className="text-white text-center">IDTECH Suggestion Engine</h1>
       <SampleChat />
     </div>
   );
