@@ -38,3 +38,44 @@ FROM hardware h
 JOIN hardware_use_case_map hucm ON h.id = hucm.hardware_id
 JOIN use_cases uc ON hucm.use_case_id = uc.id
 WHERE uc.name = 'EV Charging Station Payment Solutions';
+
+-- Find all devices mapped to multiple use cases
+SELECT h.model_name, COUNT(hucm.use_case_id) as use_case_count
+FROM hardware h
+JOIN hardware_use_case_map hucm ON h.id = hucm.hardware_id
+GROUP BY h.model_name
+HAVING COUNT(hucm.use_case_id) > 1
+ORDER BY use_case_count DESC;
+
+-- Find devices with no use cases
+SELECT h.model_name
+FROM hardware h
+LEFT JOIN hardware_use_case_map hucm ON h.id = hucm.hardware_id
+WHERE hucm.use_case_id IS NULL;
+
+-- Find use cases with no hardware
+SELECT uc.name
+FROM use_cases uc
+LEFT JOIN hardware_use_case_map hucm ON uc.id = hucm.use_case_id
+WHERE hucm.hardware_id IS NULL;
+
+-- Find devices with no categories
+SELECT h.model_name
+FROM hardware h
+LEFT JOIN hardware_category_map hcm ON h.id = hcm.hardware_id
+WHERE hcm.category_id IS NULL;
+
+-- Find categories with no hardware
+SELECT c.name
+FROM categories c
+LEFT JOIN hardware_category_map hcm ON c.id = hcm.category_id
+WHERE hcm.hardware_id IS NULL;
+
+-- Find devices with multiple specific use cases
+SELECT h.model_name
+FROM hardware h
+JOIN hardware_use_case_map hucm ON h.id = hucm.hardware_id
+JOIN use_cases uc ON hucm.use_case_id = uc.id
+WHERE uc.name IN ('EV Charging Station Payment Solutions', 'Loyalty Program Contactless Readers')
+GROUP BY h.model_name
+HAVING COUNT(DISTINCT uc.name) = 2;
