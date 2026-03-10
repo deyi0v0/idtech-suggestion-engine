@@ -4,9 +4,9 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./backend:/app
+      - ./tests/backend:/app  # Mount the test folder to /app instead
     env_file: ./backend/.env
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn test_backend:app --host 0.0.0.0 --port 8000 --reload 
 
   frontend:
     build: ./frontend
