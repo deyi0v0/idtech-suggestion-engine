@@ -12,8 +12,8 @@ The PostgreSQL Docker image executes all scripts in `/docker-entrypoint-initdb.d
 
 1.  `00_schema.sql`: Creates the table structure.
 2.  `01_insert_categories.sql`: Inserts the hardware categories.
-3.  `02_insert_use_cases.sql`: Inserts the hardware use cases.
-4.  `03_insert_hardware.sql`: Inserts the hardware devices.
+3.  `02_insert_hardware.sql`: Inserts the hardware devices.
+4.  `03_insert_use_cases.sql`: Inserts the hardware use cases.
 5.  `04_insert_z_mappings.sql`: Inserts the relationships between hardware, categories, and use cases.
 6.  `05_test_queries.sql`: Provides some sample queries for verification.
 
