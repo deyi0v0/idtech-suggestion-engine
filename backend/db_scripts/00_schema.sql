@@ -6,6 +6,7 @@ CREATE TABLE hardware (
       ip_rating VARCHAR(50),
       ik_rating VARCHAR(50),
       interface VARCHAR(255),
+      platform VARCHAR(255),
       extra_specs JSONB,
       CONSTRAINT unique_model_name UNIQUE (model_name)
 );

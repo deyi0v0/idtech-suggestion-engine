@@ -2,13 +2,24 @@
 
 This directory contains SQL scripts used to initialize the PostgreSQL database when the Docker `db` service starts.
 
-## `hardware_schema.sql`
+## `00_schema.sql`
 
 This file defines the schema for the hardware-related tables, including `hardware`, `categories`, `use_cases`, `hardware_category_map`, and `hardware_use_case_map`.
 
+## Initialization Order
+
+The PostgreSQL Docker image executes all scripts in `/docker-entrypoint-initdb.d` in **alphabetical order**. These files have been prefixed with numbers to ensure the following order:
+
+1.  `00_schema.sql`: Creates the table structure.
+2.  `01_insert_categories.sql`: Inserts the hardware categories.
+3.  `02_insert_use_cases.sql`: Inserts the hardware use cases.
+4.  `03_insert_hardware.sql`: Inserts the hardware devices.
+5.  `04_insert_z_mappings.sql`: Inserts the relationships between hardware, categories, and use cases.
+6.  `05_test_queries.sql`: Provides some sample queries for verification.
+
 ## Rebuilding the Database
 
-To rebuild the `product_db` database in the Docker container using the schema defined in `hardware_schema.sql`, follow these steps:
+To rebuild the `product_db` database in the Docker container, follow these steps:
 
 1.  **Ensure Docker is Running**: Make sure Docker Desktop or your Docker daemon is running.
 
@@ -17,13 +28,13 @@ To rebuild the `product_db` database in the Docker container using the schema de
     cd backend
     ```
 
-3.  **Bring down existing containers and volumes**: This step is crucial to ensure a clean slate. It will remove any previous database data and allow the `hardware_schema.sql` script to be executed from scratch.
+3.  **Bring down existing containers and volumes**: This step is crucial to ensure a clean slate. It will remove any previous database data and allow the initialization scripts to be executed from scratch.
     ```bash
     docker compose -f docker-compose.yml down -v
     ```
     (The `-v` flag removes named volumes associated with the services, ensuring database data is deleted).
 
-4.  **Bring up the `db` service**: This will build the Docker image (if necessary) and start the PostgreSQL container. The `docker-entrypoint.sh` of the PostgreSQL image will detect the `hardware_schema.sql` file in the mounted `/docker-entrypoint-initdb.d` directory and automatically execute it to create the database schema.
+4.  **Bring up the `db` service**: This will build the Docker image (if necessary) and start the PostgreSQL container. The `docker-entrypoint.sh` of the PostgreSQL image will detect the files in the mounted `/docker-entrypoint-initdb.d` directory and automatically execute them in order.
     ```bash
     docker compose -f docker-compose.yml up -d db
     ```
@@ -38,20 +49,7 @@ To rebuild the `product_db` database in the Docker container using the schema de
     docker ps
     ```
     Then, set up database connection through IntelliJ. 
-    ```
     You should see a list of tables including `hardware`, `categories`, `use_cases`, `hardware_category_map`, and `hardware_use_case_map`.
 
-
 # Run test_queries.sql
-    docker exec -it backend-db-1 psql -U admin -d product_db -P pager=off -f /docker-entrypoint-initdb.d/test_queries.sql    press p to see next result
-
-# Install MinerU to extract information in PDFs
-    1. activate virtual machine
-    2. download all dependencies for mineru:    
-        pip install -U "mineru[all]"
-
-    3. run this to extract information:
-    for file in "FOLDER_PATH_OF_DEVICES_PDFS"*.pdf; do
-        echo "Processing: $file"
-        mineru -p "$file" -o "./raw_extraction" -m auto
-    done
+    docker exec -it backend-db-1 psql -U admin -d product_db -P pager=off -f /docker-entrypoint-initdb.d/05_test_queries.sql
