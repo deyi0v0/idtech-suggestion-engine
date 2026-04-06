@@ -1,37 +1,72 @@
 # IDTECH Suggestion Engine
 
-An AI-powered and rule-based product recommendation chatbot for IDTECH payment terminals. 
+An AI-powered and rule-based product recommendation chatbot for IDTECH payment terminals.
+
+## Project Organization
+
+The repository is organized into three main components:
+
+- **`backend/`**: FastAPI server, database models, and recommendation logic.
+- **`frontend/`**: React application built with Vite, TypeScript, and TailwindCSS.
+- **`tests/`**: Comprehensive test suites for both backend and frontend.
+
+## Data & Database Setup
+
+The project uses PostgreSQL as its primary database. To simplify local development, the data team provides a Docker-based setup:
+
+1. **SQL Scripts**: Pre-configured schema and initial data are located in `backend/db_scripts/`.
+2. **Docker Compose**: A dedicated `docker-compose.yml` (located in `backend/`) allows for quick database provisioning.
+
+To set up the database:
+```bash
+cd backend
+docker-compose up -d db
+```
+This will automatically execute the SQL scripts in `backend/db_scripts/` to initialize your local database instance.
+
+## CI/CD and Gitflow
+
+### Gitflow
+We follow a standard Gitflow workflow:
+- **`master`**: The main branch containing production-ready code.
+- **`release/**`**: Branches used for preparing and stabilizing releases.
+- **Feature Branches**: All development should occur in feature branches, which are merged into `master` via Pull Requests.
+
+### Continuous Integration (CI)
+The CI pipeline is triggered on every Pull Request targeting `master` or `release/**` branches. It performs the following checks:
+- **Backend**: Runs `pytest` to ensure logic and API integrity.
+- **Frontend**: Performs TypeScript type-checking to ensure code quality.
 
 ## Tech Stack
 
-- **Frontend**: React (Vite), JavaScript
+- **Frontend**: React (Vite), TypeScript, TailwindCSS
 - **Backend**: Python 3.11+, FastAPI
-- **Database**: SQLite via SQLAlchemy
+- **Database**: PostgreSQL
 - **LLM**: OpenAI API (gpt-4o-mini)
-- **PDF Generation**: fpdf2
-- **Testing**: Pytest (backend), Jest (frontend)
-- **Deployment**: Docker + docker-compose
+- **Deployment**: Docker + Docker Compose
 
 ## Project Structure
 
 ```
-├── docker-compose.yml
+├── docker-compose.yml       # Root compose for full application
 ├── backend/
+│   ├── docker-compose.yml   # Database-focused compose
 │   ├── main.py              # FastAPI app entry point
-│   ├── db/                   # Database models, engine, seed script
+│   ├── db/                   # Database models and session management
+│   ├── db_scripts/           # SQL initialization scripts provided by data team
 │   ├── schemas/              # Pydantic request/response models
 │   ├── routers/              # API endpoints (chat, compare, compatibility, pdf)
-│   ├── engine/               # Rule engine & compatibility logic
-│   ├── llm/                  # OpenAI client, prompt builders, privacy filters
+│   ├── engine/               # Rule engine & compatibility logic, solution engine(formatting solution)
+│   ├── llm/                  # OpenAI client and the brain of solution
 │   └── pdf/                  # PDF report generator
 ├── frontend/
 │   └── src/
 │       ├── api/              # Backend API client functions
-│       ├── components/       # Chat, ComparisonTable, PDFDownload
-│       └── pages/            # Home page
+│       ├── components/       # UI Components (Chat, ComparisonTable, etc.)
+│       └── pages/            # Page layouts
 └── tests/
-    ├── backend/              # Pytest tests
-    └── frontend/             # Jest tests
+    ├── backend/              # Pytest backend tests
+    └── frontend/             # Jest/RTL frontend tests
 ```
 
 ## Getting Started
@@ -41,74 +76,57 @@ An AI-powered and rule-based product recommendation chatbot for IDTECH payment t
 - [Docker](https://docs.docker.com/get-docker/) and Docker Compose
 - An OpenAI API key
 
-### 1. Clone the repo
-
-```bash
-git clone <repo-url>
-cd idtech-suggestion-engine
-```
-
-### 2. Set up environment variables
+### 1. Set up environment variables
 
 ```bash
 cp backend/.env.example backend/.env
 ```
 
-Open `backend/.env` and add your OpenAI API key:
+Open `backend/.env` and add your OpenAI API key and update the `DATABASE_URL` if needed:
 
 ```
 OPENAI_API_KEY=sk-your-actual-key
-DATABASE_URL=sqlite:///./db/products.db
+DATABASE_URL=postgresql://admin:ics1802026@localhost:5432/product_db
 ```
 
-### 3. Run with Docker
+### 2. Run with Docker (Recommended)
+
+To start the full stack (Frontend, Backend, and Database):
 
 ```bash
 docker-compose up --build
 ```
 
-This starts both services:
 - **Backend** at http://localhost:8000
 - **Frontend** at http://localhost:5173
 
-### Running without Docker
+### 3. Running without Docker
 
 **Backend:**
-
 ```bash
 cd backend
+python -m venv venv
+source venv/bin/activate  # or venv\Scripts\activate on Windows
 pip install -r requirements.txt
 uvicorn main:app --reload --port 8000
 ```
 
 **Frontend:**
-
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-## Seeding the Database
-
-Once the data team provides `data/products.csv`, run the seed script:
-
-```bash
-cd backend
-python -m db.seed
-```
-
 ## Running Tests
 
 **Backend:**
-
 ```bash
 cd backend
 pytest ../tests/backend
 ```
 
 **Frontend:**
-
 ```bash
 cd frontend
 npm test
