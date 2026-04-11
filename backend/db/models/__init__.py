@@ -1,3 +1,5 @@
-from .software_apps import software_apps
-from .compatibility_map import compatibility_map
-from .hardware_devices import hardware_devices
+from .hardware import Hardware
+from .category import Category
+from .use_case import UseCase
+from .software import Software
+from .associations import hardware_category_map, hardware_use_case_map, hardware_software_map

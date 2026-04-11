@@ -4,18 +4,12 @@ This directory contains SQL scripts used to initialize the PostgreSQL database w
 
 ## `00_schema.sql`
 
-This file defines the schema for the hardware-related tables, including `hardware`, `categories`, `use_cases`, `hardware_category_map`, and `hardware_use_case_map`.
+This file defines the schema for the hardware-related tables, including `hardware`, `categories`, `use_cases`, `hardware_category_map`, `hardware_use_case_map`, `software`, and `hardware_software_map`.
 
 ## Initialization Order
 
 The PostgreSQL Docker image executes all scripts in `/docker-entrypoint-initdb.d` in **alphabetical order**. These files have been prefixed with numbers to ensure the following order:
 
-1.  `00_schema.sql`: Creates the table structure.
-2.  `01_insert_categories.sql`: Inserts the hardware categories.
-3.  `02_insert_hardware.sql`: Inserts the hardware devices.
-4.  `03_insert_use_cases.sql`: Inserts the hardware use cases.
-5.  `04_insert_z_mappings.sql`: Inserts the relationships between hardware, categories, and use cases.
-6.  `05_test_queries.sql`: Provides some sample queries for verification.
 
 ## Rebuilding the Database
 
