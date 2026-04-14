@@ -1,36 +1,60 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import select, or_
+from engine.rulesEngine.filters_schemas import HardwareFilters
 from ..models.hardware import Hardware
 from ..models.software import Software
 from ..models.category import Category
 from ..models.use_case import UseCase
-from typing import List, Optional
+from typing import List, Optional, Any
 
 # example, complete & improve the implementation
 class ProductRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def find_hardware(self, category_name: Optional[str] = None, use_case_name: Optional[str] = None, search_query: Optional[str] = None) -> List[Hardware]:
+    # def find_hardware(self, category_name: Optional[str] = None, use_case_name: Optional[str] = None, search_query: Optional[str] = None) -> List[Hardware]:
+    #     """
+    #     Search hardware based on category, use case, or a general search query.
+    #     """
+    #     stmt = select(Hardware)
+
+    #     if category_name:
+    #         stmt = stmt.join(Hardware.categories).where(Category.name.ilike(f"%{category_name}%"))
+        
+    #     if use_case_name:
+    #         stmt = stmt.join(Hardware.use_cases).where(UseCase.name.ilike(f"%{use_case_name}%"))
+
+    #     if search_query:
+    #         stmt = stmt.where(or_(
+    #             Hardware.model_name.ilike(f"%{search_query}%"),
+    #             Hardware.interface.ilike(f"%{search_query}%")
+    #         ))
+
+    #     return self.db.execute(stmt).scalars().unique().all()
+  
+    def find_hardware(self, constraints: HardwareFilters) -> List[Hardware]:
         """
         Search hardware based on category, use case, or a general search query.
         """
         stmt = select(Hardware)
 
-        if category_name:
-            stmt = stmt.join(Hardware.categories).where(Category.name.ilike(f"%{category_name}%"))
+        if constraints.use_case:
+            stmt = stmt.join(Hardware.use_cases).where(UseCase.name.ilike(f"%{constraints.use_case}%"))
+
+        if constraints.operating_temp:
+            stmt = stmt.where(Hardware.operate_temperature.ilike(f"%{constraints.operating_temp}%"))
         
-        if use_case_name:
-            stmt = stmt.join(Hardware.use_cases).where(UseCase.name.ilike(f"%{use_case_name}%"))
+        if constraints.dust_protection:
+            stmt = stmt.where(Hardware.ip_rating.ilike(f"%{constraints.dust_protection}%"))
+        
+        if constraints.water_protection:
+            stmt = stmt.where(Hardware.ip_rating.ilike(f"%{constraints.water_protection}%"))
 
-        if search_query:
-            stmt = stmt.where(or_(
-                Hardware.model_name.ilike(f"%{search_query}%"),
-                Hardware.interface.ilike(f"%{search_query}%")
-            ))
-
+        if constraints.durability:
+            stmt = stmt.where(Hardware.ik_rating.ilike(f"%{constraints.durability}%"))
+        
         return self.db.execute(stmt).scalars().unique().all()
-
+    
     def get_hardware_by_name(self, model_name: str) -> Optional[Hardware]:
         stmt = select(Hardware).where(Hardware.model_name == model_name)
         return self.db.execute(stmt).scalar_one_or_none()
