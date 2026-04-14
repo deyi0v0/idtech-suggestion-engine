@@ -93,7 +93,7 @@ export default function ChatWindow({
   }, [messages, isTyping]);
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-6 py-8 flex flex-col min-h-[70vh] border border-gray-700 rounded-xl overflow-hidden bg-[#0B0C0D] text-gray-100">
+    <div className="mx-auto w-full max-w-5xl px-6 py-8 flex flex-col min-h-[90vh] border border-gray-700 rounded-xl overflow-hidden bg-[#0B0C0D] text-gray-100">
       {/* Header */}
       <div className="flex items-center gap-2.5 px-4 py-3 border-b border-gray-700 shrink-0">
         <div>
