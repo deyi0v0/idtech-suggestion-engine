@@ -1,9 +1,10 @@
+from .engine.solution_schemas import RecommendationBundle
+from typing import List, Dict, Any
+from fpdf import FPDF
+
 # TODO: Implement generate_pdf(products: list[dict], explanations: list[str]) -> bytes:
 #   Use fpdf2 to create a simple PDF with a title, and a section per product (name, details, explanation).
 #   Return the PDF as bytes.
-
-from typing import List, Dict, Any
-from fpdf import FPDF
 
 def generate_pdf(products: List[Dict[str, Any]], explanations: List[str]) -> bytes:
     pdf = FPDF()
