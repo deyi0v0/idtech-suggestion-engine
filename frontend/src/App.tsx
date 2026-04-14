@@ -1,6 +1,7 @@
 import { useState } from "react";
 import ChatWindow from "./components/ChatWindow";
 import type { Message } from "./components/ChatWindow";
+import GenericButton from "./components/GenericButton";
 
 function App() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -21,6 +22,7 @@ function App() {
     <div className="flex flex-col items-center w-full">
       <h1 className="text-white text-center">IDTECH Suggestion Engine</h1>
       <ChatWindow messages={messages} onSend={handleSend} isTyping={isTyping} />
+      <GenericButton />
     </div>
   );
 }
