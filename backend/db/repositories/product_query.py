@@ -7,6 +7,12 @@ from ..models.category import Category
 from ..models.use_case import UseCase
 from typing import List, Optional, Any
 
+SOFTWARE_DATASHEETS = {
+    "RKI": "https://idtechproducts.com/wp-content/uploads/2024/11/RKI_Datasheet_v03.24.pdf",
+    "RDM": "https://idtechproducts.com/wp-content/uploads/2025/03/RDM_DataSheet_v02.27.25.pdf",
+    "PAE": "https://idtechproducts.com/wp-content/uploads/2026/03/PAE_Datasheet_v03.11.26.pdf"
+}
+
 # example, complete & improve the implementation
 class ProductRepository:
     def __init__(self, db: Session):
@@ -62,3 +68,19 @@ class ProductRepository:
     def get_software_by_name(self, name: str) -> Optional[Software]:
         stmt = select(Software).where(Software.name == name)
         return self.db.execute(stmt).scalar_one_or_none()
+    
+    def fetch_software_datasheets(self, model_name: str) -> List[dict]:
+        hardware = self.get_hardware_by_name(model_name)
+        if not hardware:
+            return []
+        
+        results = []
+        for software in hardware.software:
+            url = SOFTWARE_DATASHEETS.get(software.name)
+            if url:
+                results.append({
+                    "name": software.name,
+                    "url": url
+                })
+        
+        return results
