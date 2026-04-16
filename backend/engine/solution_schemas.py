@@ -1,23 +1,28 @@
 from pydantic import BaseModel
 from typing import Optional, List
 
-# it is known as the solution engine, it defines how the solution being structured in the pdf
-# this is a protocol, improve it with reasonable design
-# a tool of pdf generator
+class InstallationDoc(BaseModel):
+    title: str
+    url: str
 
 class HardwareRecommendation(BaseModel):
     model_name: str
     info: str
-    install_url: Optional[str] = None
     operate_temperature: Optional[str] = None
     ip_rating: Optional[str] = None
+    ik_rating: Optional[str] = None
+    interface: Optional[str] = None
+    extra_specs: Optional[dict] = None
+    installation_docs: List[InstallationDoc] = []
 
 class SoftwareRecommendation(BaseModel):
     name: str
     info: str
-    url: Optional[str] = None
+    datasheet_url: Optional[str] = None
 
 class RecommendationBundle(BaseModel):
     hardware: HardwareRecommendation
-    software: SoftwareRecommendation
+    software: List[SoftwareRecommendation] = []
     llm_reasoning: str
+    use_case: Optional[str] = None
+    generated_at = None
