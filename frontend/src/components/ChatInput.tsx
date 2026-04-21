@@ -55,7 +55,7 @@ export default function ChatInput({
       <button
         onClick={submit}
         disabled={!canSend}
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#03A60E] text-white transition-opacity disabled:opacity-30 hover:bg-[#84D98A] active:scale-95"
+        className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-[#03A60E] text-white transition-opacity disabled:opacity-30 hover:bg-[#84D98A] active:scale-95"
         aria-label="Send message"
         style={{ boxShadow: '0 1px 0 rgba(0,0,0,0.3)' }}
       >
