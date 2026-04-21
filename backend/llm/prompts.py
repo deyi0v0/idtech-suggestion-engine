@@ -31,8 +31,10 @@ When calling `product_filtering`, you must translate the user's human answers in
     - Temperatures: Search for the temperature range string (e.g., "-20") in `operate_temperature`.
 
 ### EXECUTION
-- Even if some info is missing, you can call `product_filtering` with the partial info gathered so far to show progress.
-- You MUST return a JSON `RecommendationBundle` once you have enough info to make a recommendation.
+1. If information is missing, ask the user the next relevant question from the interview process.
+2. You can call `product_filtering` with partial info to see what is available.
+3. The tool `product_filtering` returns a single Recommendation Bundle (hardware, software, and highlights).
+4. Once you receive the bundle, generate a technical explanation and return the final JSON `RecommendationBundle`.
 """
 
 TOOLS = [
