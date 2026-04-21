@@ -13,13 +13,13 @@ export default function MessageBubble({
     <div className={`flex flex-col gap-2 ${isBot ? "items-start" : "items-end"}`}>
       {isBot ? (
         <div className="w-full">
-          <p className="w-full px-3 py-2 text-sm leading-relaxed text-gray-200">
+          <p className="w-full px-3 py-2 text-sm leading-relaxed text-primary">
             {msg.text}
           </p>
         </div>
       ) : (
         <div className="self-end max-w-[75%] inline-block">
-          <p className="inline-block rounded-2xl px-3 py-2 text-sm leading-relaxed bg-[#2B2B2B] text-white">
+          <p className="inline-block rounded-2xl px-3 py-2 text-sm leading-relaxed bubble-user-bg">
             {msg.text}
           </p>
         </div>

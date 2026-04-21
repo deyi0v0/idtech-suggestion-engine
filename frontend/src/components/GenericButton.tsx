@@ -8,7 +8,7 @@ interface GenericButtonProps {
 export default function GenericButton({
     onClick,
     children,
-    className = "bg-green-700 hover:bg-green-600 text-gray-100",
+    className = "btn-accent",
     disabled = false,
 }: GenericButtonProps) {
     return (

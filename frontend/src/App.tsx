@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import ChatWindow from "./components/ChatWindow";
 import type { Message } from "./types/messages";
 import GenericButton from "./components/GenericButton";
@@ -42,6 +42,21 @@ function App() {
   const [isTyping, setIsTyping] = useState(false);
   // -1 means demo not started, otherwise index of last asked question
   const demoIndex = useRef<number>(-1);
+  const [theme, setTheme] = useState<"dark" | "light">("light");
+
+  // apply theme class to body
+  const applyTheme = (t: "dark" | "light") => {
+    if (t === "light") {
+      document.body.classList.add("light-theme");
+    } else {
+      document.body.classList.remove("light-theme");
+    }
+  };
+
+  // initialize theme
+  useEffect(() => {
+    applyTheme(theme);
+  }, []);
 
   const handleSend = async (text: string) => {
     const prevDemo = demoIndex.current;
@@ -89,8 +104,19 @@ function App() {
 
   return (
     <div className="flex flex-col items-center w-full">
+      <div className="w-full flex justify-end px-8 py-4">
+        <GenericButton
+          onClick={() => {
+            const next = theme === "dark" ? "light" : "dark";
+            setTheme(next);
+            applyTheme(next);
+          }}
+          className="rounded-md px-3 py-1"
+        >
+          {theme === "dark" ? "Light" : "Dark"}
+        </GenericButton>
+      </div>
       <ChatWindow messages={messages} onSend={handleSend} isTyping={isTyping} />
-      <GenericButton />
     </div>
   );
 }

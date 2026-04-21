@@ -22,7 +22,7 @@ export default function MultipleChoiceMessage({
               <GenericButton
                 key={c.id}
                 onClick={() => onChoice(c.label)}
-                className="rounded-full border border-gray-300 bg-green-700 px-3 py-1 hover:bg-green-600 text-xs transition-colors"
+                className={`choice-btn ${msg.answered ? "opacity-50 cursor-not-allowed" : "btn-accent"}`}
                 disabled={!!msg.answered}
               >
                 {c.label}
