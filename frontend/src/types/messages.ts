@@ -3,6 +3,12 @@ export interface Choice {
   label: string;
 }
 
+export interface Product {
+  name: string;
+  sku: string;
+  description: string;
+}
+
 export interface Message {
   id: string;
   role: "bot" | "user";
@@ -12,4 +18,5 @@ export interface Message {
   choices?: Choice[];
   answered?: boolean;
   selectedChoice?: string;
+  product?: Product;
 }
