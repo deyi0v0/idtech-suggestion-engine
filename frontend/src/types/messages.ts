@@ -10,4 +10,6 @@ export interface Message {
   quickReplies?: string[];
   type?: "text" | "multipleChoice";
   choices?: Choice[];
+  answered?: boolean;
+  selectedChoice?: string;
 }
