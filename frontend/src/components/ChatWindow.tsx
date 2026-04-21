@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import ChatInput from "./ChatInput";
-import type { Message } from "../types/messages";
+import type { Message, Product } from "../types/messages";
 import MessageBubble from "./MessageBubble";
 import MultipleChoiceMessage from "./MultipleChoiceMessage";
 
@@ -9,9 +9,8 @@ interface ChatWindowProps {
   onSend: (text: string) => void;
   isTyping?: boolean;
   disabled?: boolean;
+  onShowProduct?: (product: Product) => void;
 }
-
-//components
 
 function TypingIndicator() {
   return (
@@ -31,13 +30,12 @@ function TypingIndicator() {
   );
 }
 
-
-//default component
 export default function ChatWindow({
   messages,
   onSend,
   isTyping = false,
   disabled = false,
+  onShowProduct,
 }: ChatWindowProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -46,7 +44,7 @@ export default function ChatWindow({
   }, [messages, isTyping]);
 
   return (
-      <div className="mx-auto min-w-[50vh] max-w-[50vh] px-6 py-8 flex flex-col min-h-[90vh] border-4 rounded-s overflow-hidden chat-bg text-primary" style={{ borderColor: "var(--border)" }}>
+    <div className="mx-auto min-w-[50vh] max-w-[50vh] px-6 py-8 flex flex-col min-h-[90vh] border-4 rounded-s overflow-hidden chat-bg text-primary" style={{ borderColor: "var(--border)" }}>
       {/* Header */}
       <div className="flex items-center gap-2.5 px-4 py-3 border-b-2 shrink-0" style={{ borderColor: "var(--border)" }}>
         <div>
@@ -63,25 +61,25 @@ export default function ChatWindow({
             </p>
           </div>
         ) : (
-          messages.map((msg) => (
+          messages.map((msg) =>
             msg.type === "multipleChoice" || (msg.choices && msg.choices.length > 0) ? (
               <MultipleChoiceMessage key={msg.id} msg={msg} onChoice={onSend} />
             ) : (
-              <MessageBubble key={msg.id} msg={msg} onQuickReply={onSend} />
+              <MessageBubble key={msg.id} msg={msg} onQuickReply={onSend} onShowProduct={onShowProduct} />
             )
-          ))
+          )
         )}
         {isTyping && <TypingIndicator />}
         <div ref={bottomRef} />
       </div>
 
       {/* Escalation strip */}
-        <div className="flex items-center gap-1 px-4 py-2 border-t" style={{ borderColor: "var(--border)" }}>
-          <span className="text-xs text-secondary">Can't find what you need?</span>
-          <a href="mailto:support@idtechproducts.com" className="text-xs" style={{ color: "var(--accent)" }}>
-            Email our team →
-          </a>
-        </div>
+      <div className="flex items-center gap-1 px-4 py-2 border-t" style={{ borderColor: "var(--border)" }}>
+        <span className="text-xs text-secondary">Can't find what you need?</span>
+        <a href="mailto:support@idtechproducts.com" className="text-xs" style={{ color: "var(--accent)" }}>
+          Email our team →
+        </a>
+      </div>
 
       {/* Input */}
       <ChatInput onSend={onSend} disabled={disabled} />

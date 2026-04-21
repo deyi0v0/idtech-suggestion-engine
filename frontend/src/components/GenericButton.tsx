@@ -1,6 +1,8 @@
+import { type ReactNode } from "react";
+
 interface GenericButtonProps {
     onClick?: () => void;
-    children?: React.ReactNode;
+    children?: ReactNode;
     className?: string;
     disabled?: boolean;
 }
@@ -20,4 +22,4 @@ export default function GenericButton({
             {children ?? "Button"}
         </button>
     );
-}
+};

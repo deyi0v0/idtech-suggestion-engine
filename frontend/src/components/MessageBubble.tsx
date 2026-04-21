@@ -1,11 +1,14 @@
-import type { Message } from "../types/messages";
+import type { Message, Product } from "../types/messages";
+import GenericButton from "./GenericButton";
 
 export default function MessageBubble({
   msg,
   onQuickReply,
+  onShowProduct,
 }: {
   msg: Message;
   onQuickReply: (label: string) => void;
+  onShowProduct?: (product: Product) => void;
 }) {
   const isBot = msg.role === "bot";
 
@@ -37,6 +40,12 @@ export default function MessageBubble({
             </button>
           ))}
         </div>
+      )}
+
+      {isBot && msg.product && onShowProduct && (
+        <GenericButton onClick={() => onShowProduct(msg.product!)}>
+          View Recommended Products
+        </GenericButton>
       )}
     </div>
   );

@@ -1,9 +1,9 @@
 import { useRef, useState, useEffect } from "react";
 import ChatWindow from "./components/ChatWindow";
-import type { Message } from "./types/messages";
+import type { Message, Product } from "./types/messages";
 import GenericButton from "./components/GenericButton";
+import ProductModal from "./components/ProductModal";
 
-// Demo multiple-choice questions sequence
 const demoQuestions: Message[] = [
   {
     id: "demo-q-1",
@@ -40,11 +40,10 @@ const demoQuestions: Message[] = [
 function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isTyping, setIsTyping] = useState(false);
-  // -1 means demo not started, otherwise index of last asked question
+  const [modalProduct, setModalProduct] = useState<Product | null>(null);
   const demoIndex = useRef<number>(-1);
   const [theme, setTheme] = useState<"dark" | "light">("light");
 
-  // apply theme class to body
   const applyTheme = (t: "dark" | "light") => {
     if (t === "light") {
       document.body.classList.add("light-theme");
@@ -53,7 +52,6 @@ function App() {
     }
   };
 
-  // initialize theme
   useEffect(() => {
     applyTheme(theme);
   }, []);
@@ -63,14 +61,12 @@ function App() {
     const nextDemo = prevDemo === -1 ? 0 : prevDemo + 1;
     demoIndex.current = nextDemo;
 
-    // Mark the most recent unanswered multiple-choice bot message as answered and append the user message
     setMessages((prev) => {
       const newArr = prev.slice();
 
       if (prevDemo >= 0) {
-        // find last bot multiple-choice message that is not answered
         for (let i = newArr.length - 1; i >= 0; i--) {
-          const m = newArr[i] as Message;
+          const m = newArr[i];
           if (
             m.role === "bot" &&
             (m.type === "multipleChoice" || (m.choices && m.choices.length > 0)) &&
@@ -93,11 +89,21 @@ function App() {
       setMessages((prev) => [...prev, { ...nextQ, id: (Date.now() + 1).toString() }]);
       setIsTyping(false);
     } else if (nextDemo >= demoQuestions.length) {
-      // finished sequence: show final summary reply
       setIsTyping(true);
       await new Promise((r) => setTimeout(r, 500));
-      const reply = `Thanks! Based on your answers I'll narrow down some recommended products.`;
-      setMessages((prev) => [...prev, { id: (Date.now() + 1).toString(), role: "bot", text: reply }]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: (Date.now() + 1).toString(),
+          role: "bot",
+          text: "Thanks! Based on your answers I'll narrow down some recommended products.",
+          product: {
+            name: "Product A",
+            sku: "12345",
+            description: "Covers common use-cases and matches your compatibility requirements.",
+          },
+        },
+      ]);
       setIsTyping(false);
     }
   };
@@ -116,7 +122,20 @@ function App() {
           {theme === "dark" ? "Light" : "Dark"}
         </GenericButton>
       </div>
-      <ChatWindow messages={messages} onSend={handleSend} isTyping={isTyping} />
+      <div className="flex flex-row w-full">
+        <div className="flex-1 border border-gray-50 flex items-center justify-around">
+          <p className="italic text-gray-500">IDTECH Products Website Content</p>
+        </div>
+        <ChatWindow
+          messages={messages}
+          onSend={handleSend}
+          isTyping={isTyping}
+          onShowProduct={(product) => setModalProduct(product)}
+        />
+      </div>
+      {modalProduct && (
+        <ProductModal product={modalProduct} onClose={() => setModalProduct(null)} />
+      )}
     </div>
   );
 }
