@@ -111,7 +111,7 @@ function App() {
             setTheme(next);
             applyTheme(next);
           }}
-          className="rounded-md px-3 py-1"
+          className="rounded-md bg-green-700 px-3 py-1"
         >
           {theme === "dark" ? "Light" : "Dark"}
         </GenericButton>
