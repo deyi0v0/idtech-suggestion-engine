@@ -16,12 +16,12 @@ interface ChatWindowProps {
 function TypingIndicator() {
   return (
     <div className="flex items-end gap-2">
-      <div className="rounded-2xl rounded-bl-sm bg-gray-700 px-4 py-3">
+      <div className="rounded-2xl rounded-bl-sm px-4 py-3 bot-bubble">
         <div className="flex gap-1 items-center h-4">
           {[0, 1, 2].map((i) => (
             <span
               key={i}
-              className="block h-1.5 w-1.5 rounded-full bg-gray-400 animate-bounce"
+              className="block h-1.5 w-1.5 rounded-full animate-bounce bot-dot"
               style={{ animationDelay: `${i * 0.15}s` }}
             />
           ))}
@@ -46,11 +46,11 @@ export default function ChatWindow({
   }, [messages, isTyping]);
 
   return (
-    <div className="mx-auto min-w-[50vh] max-w-[50vh] px-6 py-8 flex flex-col min-h-[90vh] border border-gray-700 rounded-xl overflow-hidden bg-[#0B0C0D] text-gray-100">
+      <div className="mx-auto min-w-[50vh] max-w-[50vh] px-6 py-8 flex flex-col min-h-[90vh] border rounded-xl overflow-hidden chat-bg text-primary" style={{ borderColor: "var(--border)" }}>
       {/* Header */}
-      <div className="flex items-center gap-2.5 px-4 py-3 border-b border-gray-700 shrink-0">
+      <div className="flex items-center gap-2.5 px-4 py-3 border-b shrink-0" style={{ borderColor: "var(--border)" }}>
         <div>
-          <p className="text-2xl font-semibold text-gray-100">IDTech AI</p>
+          <p className="text-2xl font-semibold text-primary">IDTech AI</p>
         </div>
       </div>
 
@@ -58,7 +58,7 @@ export default function ChatWindow({
       <div className="flex-1 overflow-y-auto px-6 py-6 flex flex-col gap-4">
         {messages.length === 0 ? (
           <div className="flex-1 flex items-center justify-center">
-            <p className="text-center text-xl text-gray-300">
+            <p className="text-center text-xl text-secondary">
               <i>Ask anything about IDTech payment hardware.</i>
             </p>
           </div>
@@ -76,15 +76,12 @@ export default function ChatWindow({
       </div>
 
       {/* Escalation strip */}
-      <div className="flex items-center gap-1 px-4 py-2 border-t border-gray-100">
-        <span className="text-xs text-gray-400">Can't find what you need?</span>
-        <a
-          href="mailto:support@idtechproducts.com"
-          className="text-xs text-blue-600 hover:underline"
-        >
-          Email our team →
-        </a>
-      </div>
+        <div className="flex items-center gap-1 px-4 py-2 border-t" style={{ borderColor: "var(--border)" }}>
+          <span className="text-xs text-secondary">Can't find what you need?</span>
+          <a href="mailto:support@idtechproducts.com" className="text-xs" style={{ color: "var(--accent)" }}>
+            Email our team →
+          </a>
+        </div>
 
       {/* Input */}
       <ChatInput onSend={onSend} disabled={disabled} />
