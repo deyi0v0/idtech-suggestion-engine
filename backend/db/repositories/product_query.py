@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import select, or_
 from ..models.hardware import Hardware
 from ..models.software import Software
@@ -6,35 +6,55 @@ from ..models.category import Category
 from ..models.use_case import UseCase
 from typing import List, Optional
 
-# example, complete & improve the implementation
 class ProductRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def find_hardware(self, category_name: Optional[str] = None, use_case_name: Optional[str] = None, search_query: Optional[str] = None) -> List[Hardware]:
+    def find_products(self, 
+                      category: Optional[str] = None, 
+                      use_case: Optional[str] = None, 
+                      input_power: Optional[str] = None,
+                      interface: Optional[str] = None,
+                      temp: Optional[str] = None,
+                      extra_filter: Optional[str] = None,
+                      query: Optional[str] = None) -> List[Hardware]:
         """
-        Search hardware based on category, use case, or a general search query.
+        Comprehensive search for hardware along with its compatible software.
         """
-        stmt = select(Hardware)
+        # We use joinedload to pre-fetch the software and categories in one go
+        stmt = select(Hardware).options(
+            joinedload(Hardware.software),
+            joinedload(Hardware.categories),
+            joinedload(Hardware.use_cases)
+        )
 
-        if category_name:
-            stmt = stmt.join(Hardware.categories).where(Category.name.ilike(f"%{category_name}%"))
+        filters = []
         
-        if use_case_name:
-            stmt = stmt.join(Hardware.use_cases).where(UseCase.name.ilike(f"%{use_case_name}%"))
+        if category:
+            stmt = stmt.join(Hardware.categories).where(Category.name.ilike(f"%{category}%"))
+        
+        if use_case:
+            stmt = stmt.join(Hardware.use_cases).where(UseCase.name.ilike(f"%{use_case}%"))
 
-        if search_query:
-            stmt = stmt.where(or_(
-                Hardware.model_name.ilike(f"%{search_query}%"),
-                Hardware.interface.ilike(f"%{search_query}%")
-            ))
+        if input_power:
+            filters.append(Hardware.input_power.ilike(f"%{input_power}%"))
+        
+        if interface:
+            filters.append(Hardware.interface.ilike(f"%{interface}%"))
 
-        return self.db.execute(stmt).scalars().unique().all()
+        if temp:
+            filters.append(Hardware.operate_temperature.ilike(f"%{temp}%"))
 
-    def get_hardware_by_name(self, model_name: str) -> Optional[Hardware]:
-        stmt = select(Hardware).where(Hardware.model_name == model_name)
-        return self.db.execute(stmt).scalar_one_or_none()
+        if extra_filter:
+            # Search inside the JSONB extra_specs field
+            filters.append(Hardware.extra_specs.cast(str).ilike(f"%{extra_filter}%"))
 
-    def get_software_by_name(self, name: str) -> Optional[Software]:
-        stmt = select(Software).where(Software.name == name)
-        return self.db.execute(stmt).scalar_one_or_none()
+        if query:
+            filters.append(Hardware.model_name.ilike(f"%{query}%"))
+
+        if filters:
+            from sqlalchemy import and_
+            stmt = stmt.where(and_(*filters))
+
+        result = self.db.execute(stmt)
+        return result.scalars().unique().all()
