@@ -44,25 +44,40 @@ function App() {
   const demoIndex = useRef<number>(-1);
 
   const handleSend = async (text: string) => {
-    // append user message
-    setMessages((prev) => [...prev, { id: Date.now().toString(), role: "user", text }]);
+    const prevDemo = demoIndex.current;
+    const nextDemo = prevDemo === -1 ? 0 : prevDemo + 1;
+    demoIndex.current = nextDemo;
 
-    // Determine next step in demo sequence
-    if (demoIndex.current === -1) {
-      // start sequence: ask first question
-      demoIndex.current = 0;
-    } else {
-      // user answered previous question; advance to next
-      demoIndex.current += 1;
-    }
+    // Mark the most recent unanswered multiple-choice bot message as answered and append the user message
+    setMessages((prev) => {
+      const newArr = prev.slice();
 
-    if (demoIndex.current >= 0 && demoIndex.current < demoQuestions.length) {
+      if (prevDemo >= 0) {
+        // find last bot multiple-choice message that is not answered
+        for (let i = newArr.length - 1; i >= 0; i--) {
+          const m = newArr[i] as Message;
+          if (
+            m.role === "bot" &&
+            (m.type === "multipleChoice" || (m.choices && m.choices.length > 0)) &&
+            !m.answered
+          ) {
+            newArr[i] = { ...m, answered: true, selectedChoice: text };
+            break;
+          }
+        }
+      }
+
+      newArr.push({ id: Date.now().toString(), role: "user", text });
+      return newArr;
+    });
+
+    if (nextDemo >= 0 && nextDemo < demoQuestions.length) {
       setIsTyping(true);
       await new Promise((r) => setTimeout(r, 500));
-      const nextQ = demoQuestions[demoIndex.current];
+      const nextQ = demoQuestions[nextDemo];
       setMessages((prev) => [...prev, { ...nextQ, id: (Date.now() + 1).toString() }]);
       setIsTyping(false);
-    } else if (demoIndex.current >= demoQuestions.length) {
+    } else if (nextDemo >= demoQuestions.length) {
       // finished sequence: show final summary reply
       setIsTyping(true);
       await new Promise((r) => setTimeout(r, 500));
