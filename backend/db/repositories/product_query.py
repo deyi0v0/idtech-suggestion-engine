@@ -1,9 +1,10 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import select, or_
+from sqlalchemy import select, or_, func, cast, String
 from engine.rulesEngine.filters_schemas import HardwareFilters
 from ..models.hardware import Hardware
 from ..models.software import Software
 from ..models.category import Category
+from ..models.associations import hardware_software_map
 from ..models.use_case import UseCase
 from typing import List, Optional, Any
 
@@ -17,26 +18,6 @@ SOFTWARE_DATASHEETS = {
 class ProductRepository:
     def __init__(self, db: Session):
         self.db = db
-
-    # def find_hardware(self, category_name: Optional[str] = None, use_case_name: Optional[str] = None, search_query: Optional[str] = None) -> List[Hardware]:
-    #     """
-    #     Search hardware based on category, use case, or a general search query.
-    #     """
-    #     stmt = select(Hardware)
-
-    #     if category_name:
-    #         stmt = stmt.join(Hardware.categories).where(Category.name.ilike(f"%{category_name}%"))
-        
-    #     if use_case_name:
-    #         stmt = stmt.join(Hardware.use_cases).where(UseCase.name.ilike(f"%{use_case_name}%"))
-
-    #     if search_query:
-    #         stmt = stmt.where(or_(
-    #             Hardware.model_name.ilike(f"%{search_query}%"),
-    #             Hardware.interface.ilike(f"%{search_query}%")
-    #         ))
-
-    #     return self.db.execute(stmt).scalars().unique().all()
   
     def find_hardware(self, constraints: HardwareFilters) -> List[Hardware]:
         """
@@ -51,10 +32,16 @@ class ProductRepository:
             stmt = stmt.where(Hardware.operate_temperature.ilike(f"%{constraints.operating_temp}%"))
         
         if constraints.dust_protection:
-            stmt = stmt.where(Hardware.ip_rating.ilike(f"%{constraints.dust_protection}%"))
-        
-        if constraints.water_protection:
-            stmt = stmt.where(Hardware.ip_rating.ilike(f"%{constraints.water_protection}%"))
+            stmt = stmt.where(
+                func.substr(cast(Hardware.ip_rating, String), 1, 1)
+                == str(constraints.dust_protection)
+            )
+
+        # if constraints.water_protection:
+        #     stmt = stmt.where(
+        #         func.substr(cast(Hardware.ip_rating, String), 2, 1)
+        #         == str(constraints.water_protection)
+        #     )
 
         if constraints.durability:
             stmt = stmt.where(Hardware.ik_rating.ilike(f"%{constraints.durability}%"))
@@ -68,6 +55,22 @@ class ProductRepository:
     def get_software_by_name(self, name: str) -> Optional[Software]:
         stmt = select(Software).where(Software.name == name)
         return self.db.execute(stmt).scalar_one_or_none()
+    
+    def get_software_for_hardware(self, constraints):
+        stmt = (
+            select(Software)
+            .join(
+                hardware_software_map,
+                Software.id == hardware_software_map.c.software_id
+            )
+            .join(
+                Hardware,
+                Hardware.id == hardware_software_map.c.hardware_id
+            )
+            .where(Hardware.model_name == constraints.model_name)
+        )
+        
+        return self.db.execute(stmt).scalars().unique().all()
     
     def fetch_software_datasheets(self, model_name: str) -> List[dict]:
         hardware = self.get_hardware_by_name(model_name)
