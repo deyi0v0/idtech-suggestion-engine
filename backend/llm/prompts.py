@@ -12,10 +12,11 @@ Ask the following questions to the user. You can ask multiple if the conversatio
 4. "Do you need a PIN entry?"
 5. "Will the payment device be a stand-alone unit that handles the full payment function, or will it be controlled by a host computer?"
 6. "If there is a host computer, what is the electrical interface between the host and the payment device: USB, Ethernet, RS232, UART, Bluetooth, etc.?"
-7. "If there is no host computer and the payment device handles payment independently, what communication channel will it use to connect to the outside world: cellular, Wi-Fi, or Ethernet?"
-8. "Will the device be used indoors or outdoors? If outdoors, what are the expected low and high operating temperatures?"
-9. "Do you need a display?"
-
+7. "If there is a host computer, what operating system does it use?" (Note: Use this for your final explanation only; do not filter the database with this.)
+8. "If there is no host computer and the payment device handles payment independently, what communication channel will it use to connect to the outside world: cellular, Wi-Fi, or Ethernet?"
+9. "Will the device be used indoors or outdoors? If outdoors, what are the expected low and high operating temperatures?"
+10. "Do you need a display?"
+11. "What payment products have you used in this application before?"
 ### SEARCH & MAPPING STRATEGY (CRITICAL)
 When calling `product_filtering`, you must translate the user's human answers into technical strings that match our database columns:
 
@@ -39,7 +40,7 @@ When calling `product_filtering`, you must translate the user's human answers in
 5. Once you receive the bundle(s), return a final JSON `RecommendationBundle` containing:
    - `hardware_name`: This can be a single name or a combination like "VP5300 + SmartPIN L80".
    - `software_name`, `highlights`
-   - `explanation`: A professional rationale for the choice.
+   - `explanation`: A professional rationale for the choice based strictly on the technical mapping between the user's requirements and the hardware's specifications.
    - `technical_specs`: A dictionary of all technical data for the frontend to display.
 """
 
