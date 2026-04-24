@@ -123,7 +123,7 @@ function App() {
         </GenericButton>
       </div>
       <div className="flex flex-row w-full">
-        <div className="flex-1 border border-gray-50 flex items-center justify-around">
+        <div className="flex-1 border-4 border-r-0 flex items-center justify-around" style={{ borderColor: "var(--border)" }}>
           <p className="italic text-gray-500">IDTECH Products Website Content</p>
         </div>
         <ChatWindow
