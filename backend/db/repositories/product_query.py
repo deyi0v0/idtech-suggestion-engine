@@ -79,7 +79,7 @@ class ProductRepository:
 
             stmt = stmt.where(
                 or_(*[
-                    Hardware.extra_specs.ilike(f"%{f.strip()}%")
+                    cast(Hardware.extra_specs, String).ilike(f"%{f.strip()}%")
                     for f in filters if f
                 ])
             )
@@ -87,7 +87,6 @@ class ProductRepository:
         # if constraints.operate_temperature: #change
         #     stmt = stmt.where(Hardware.operate_temperature.ilike(f"%{constraints.operate_temperature}%"))
 
-        
         return self.db.execute(stmt).scalars().unique().all()
     
     def get_hardware_by_name(self, model_name: str) -> Optional[Hardware]:
@@ -98,7 +97,7 @@ class ProductRepository:
         stmt = select(Software).where(Software.name == name)
         return self.db.execute(stmt).scalar_one_or_none()
     
-    def get_software_for_hardware(self, constraints):
+    def get_software_for_hardware(self, name: str):
         stmt = (
             select(Software)
             .join(
@@ -109,7 +108,7 @@ class ProductRepository:
                 Hardware,
                 Hardware.id == hardware_software_map.c.hardware_id
             )
-            .where(Hardware.model_name == constraints.model_name)
+            .where(Hardware.model_name == name)
         )
 
         return self.db.execute(stmt).scalars().unique().all()
