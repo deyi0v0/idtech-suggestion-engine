@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import select, or_, func, cast, String
+from sqlalchemy import select, or_, not_, func, cast, String
 from engine.rulesEngine.filters_schemas import HardwareFilters
 from ..models.hardware import Hardware
 from ..models.software import Software
@@ -25,26 +25,68 @@ class ProductRepository:
         """
         stmt = select(Hardware)
 
+        if constraints.model_name:
+            stmt = stmt.where(Hardware.model_name.ilike(f"%{constraints.model_name}%"))
+
+        if constraints.category:
+            stmt = stmt.join(Hardware.categories).where(Category.name.ilike(f"%{constraints.category}%"))
+
         if constraints.use_case:
             stmt = stmt.join(Hardware.use_cases).where(UseCase.name.ilike(f"%{constraints.use_case}%"))
 
-        if constraints.operating_temp:
-            stmt = stmt.where(Hardware.operate_temperature.ilike(f"%{constraints.operating_temp}%"))
-        
-        if constraints.dust_protection:
+        if constraints.interface:
+            interfaces = constraints.interface
+            if isinstance(interfaces, str):
+                interfaces = [interfaces]
+
             stmt = stmt.where(
-                func.substr(cast(Hardware.ip_rating, String), 1, 1)
-                == str(constraints.dust_protection)
+                or_(*[
+                    Hardware.interface.ilike(f"%{i}%")
+                    for i in interfaces
+                ])
             )
 
-        # if constraints.water_protection:
-        #     stmt = stmt.where(
-        #         func.substr(cast(Hardware.ip_rating, String), 2, 1)
-        #         == str(constraints.water_protection)
-        #     )
+        if constraints.input_power:
+            stmt = stmt.where(Hardware.input_power.ilike(f"%{constraints.input_power}%"))
 
-        if constraints.durability:
-            stmt = stmt.where(Hardware.ik_rating.ilike(f"%{constraints.durability}%"))
+        if constraints.is_outdoor is True:
+            stmt = stmt.where(
+                or_(
+                    Hardware.ip_rating.ilike("%IP65%"),
+                    Hardware.ip_rating.ilike("%IP66%"),
+                    Hardware.ip_rating.ilike("%IP67%"),
+                    Hardware.ip_rating.ilike("%IP68%"),
+                    Hardware.ip_rating.ilike("%IP69%")
+                )
+            ) 
+
+        if constraints.is_standalone is True:
+            stmt = stmt.where(
+                or_(
+                    Hardware.extra_specs.ilike("%processor%"),
+                    Hardware.extra_specs.ilike("%CPU%"),
+                    Hardware.extra_specs.ilike("%RAM%"),
+                    Hardware.extra_specs.ilike("%memory%"),
+                    Hardware.extra_specs.ilike("%Flash%"),
+                    Hardware.extra_specs.ilike("%ARM Processor%"),
+                )
+            )
+
+        if constraints.extra_specs:
+            filters = constraints.extra_specs
+            if isinstance(filters, str):
+                filters = [filters]
+
+            stmt = stmt.where(
+                or_(*[
+                    Hardware.extra_specs.ilike(f"%{f.strip()}%")
+                    for f in filters if f
+                ])
+            )
+
+        # if constraints.operate_temperature: #change
+        #     stmt = stmt.where(Hardware.operate_temperature.ilike(f"%{constraints.operate_temperature}%"))
+
         
         return self.db.execute(stmt).scalars().unique().all()
     
@@ -69,7 +111,7 @@ class ProductRepository:
             )
             .where(Hardware.model_name == constraints.model_name)
         )
-        
+
         return self.db.execute(stmt).scalars().unique().all()
     
     def fetch_software_datasheets(self, model_name: str) -> List[dict]:
