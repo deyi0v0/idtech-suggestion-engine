@@ -3,10 +3,13 @@ import ChatWindow from "./components/ChatWindow";
 import type { Message, Product } from "./types/messages";
 import GenericButton from "./components/GenericButton";
 import ProductModal from "./components/ProductModal";
+import { sendChatMessage, type ChatHistoryItem } from "./api/client";
 
-const demoQuestions: Message[] = [
+type ChatApiResponse = Record<string, unknown>;
+
+const onboardingQuestions: Message[] = [
   {
-    id: "demo-q-1",
+    id: "onboard-q-1",
     role: "bot",
     text: "Which product category are you interested in?",
     type: "multipleChoice",
@@ -16,7 +19,7 @@ const demoQuestions: Message[] = [
     ],
   },
   {
-    id: "demo-q-2",
+    id: "onboard-q-2",
     role: "bot",
     text: "What form factor do you prefer?",
     type: "multipleChoice",
@@ -26,7 +29,7 @@ const demoQuestions: Message[] = [
     ],
   },
   {
-    id: "demo-q-3",
+    id: "onboard-q-3",
     role: "bot",
     text: "Do you need contactless payment support?",
     type: "multipleChoice",
@@ -37,11 +40,80 @@ const demoQuestions: Message[] = [
   },
 ];
 
+function asStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (typeof item === "string") return item;
+      if (item && typeof item === "object" && "label" in item && typeof item.label === "string") {
+        return item.label;
+      }
+      return "";
+    })
+    .filter((item) => item.length > 0);
+}
+
+function mapApiResponseToMessage(response: ChatApiResponse): Message {
+  const content = typeof response.content === "string" ? response.content : "";
+  const choices = asStringArray(response.choices);
+
+  if (content) {
+    return {
+      id: `bot-${Date.now()}`,
+      role: "bot",
+      text: content,
+      type: choices.length > 0 ? "multipleChoice" : "text",
+      choices: choices.length > 0 ? choices.map((label, index) => ({ id: `choice-${index}`, label })) : undefined,
+    };
+  }
+
+  const hardwareName = typeof response.hardware_name === "string" ? response.hardware_name : "";
+  if (hardwareName) {
+    const softwareName = typeof response.software_name === "string" ? response.software_name : "";
+    const highlights = asStringArray(response.highlights);
+    const explanation =
+      typeof response.explanation === "string"
+        ? response.explanation
+        : "Your recommendation is ready.";
+
+    const details = [softwareName ? `Software: ${softwareName}` : "", ...highlights]
+      .filter(Boolean)
+      .join(" | ");
+
+    return {
+      id: `bot-${Date.now()}`,
+      role: "bot",
+      text: explanation,
+      product: {
+        name: hardwareName,
+        sku: "Recommended",
+        description: details || explanation,
+      },
+    };
+  }
+
+  const explanation =
+    typeof response.explanation === "string" ? response.explanation : "I can help with that. Tell me more.";
+
+  return {
+    id: `bot-${Date.now()}`,
+    role: "bot",
+    text: explanation,
+  };
+}
+
 function App() {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>([
+    { ...onboardingQuestions[0], id: `onboard-initial-${Date.now()}` },
+  ]);
   const [isTyping, setIsTyping] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const [modalProduct, setModalProduct] = useState<Product | null>(null);
-  const demoIndex = useRef<number>(-1);
+  const historyRef = useRef<ChatHistoryItem[]>([
+    { role: "assistant", content: onboardingQuestions[0].text },
+  ]);
+  const [onboardingIndex, setOnboardingIndex] = useState(0);
+  const [onboardingComplete, setOnboardingComplete] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("light");
 
   const applyTheme = (t: "dark" | "light") => {
@@ -57,54 +129,90 @@ function App() {
   }, []);
 
   const handleSend = async (text: string) => {
-    const prevDemo = demoIndex.current;
-    const nextDemo = prevDemo === -1 ? 0 : prevDemo + 1;
-    demoIndex.current = nextDemo;
+    if (!text.trim() || isSending) return;
+
+    const priorHistory = historyRef.current;
 
     setMessages((prev) => {
-      const newArr = prev.slice();
+      const updated = prev.slice();
 
-      if (prevDemo >= 0) {
-        for (let i = newArr.length - 1; i >= 0; i--) {
-          const m = newArr[i];
-          if (
-            m.role === "bot" &&
-            (m.type === "multipleChoice" || (m.choices && m.choices.length > 0)) &&
-            !m.answered
-          ) {
-            newArr[i] = { ...m, answered: true, selectedChoice: text };
-            break;
-          }
+      for (let i = updated.length - 1; i >= 0; i--) {
+        const message = updated[i];
+        if (
+          message.role === "bot" &&
+          (message.type === "multipleChoice" || (message.choices && message.choices.length > 0)) &&
+          !message.answered
+        ) {
+          updated[i] = { ...message, answered: true, selectedChoice: text };
+          break;
         }
       }
 
-      newArr.push({ id: Date.now().toString(), role: "user", text });
-      return newArr;
+      updated.push({ id: `user-${Date.now()}`, role: "user", text });
+      return updated;
     });
 
-    if (nextDemo >= 0 && nextDemo < demoQuestions.length) {
-      setIsTyping(true);
-      await new Promise((r) => setTimeout(r, 500));
-      const nextQ = demoQuestions[nextDemo];
-      setMessages((prev) => [...prev, { ...nextQ, id: (Date.now() + 1).toString() }]);
-      setIsTyping(false);
-    } else if (nextDemo >= demoQuestions.length) {
-      setIsTyping(true);
-      await new Promise((r) => setTimeout(r, 500));
+    if (!onboardingComplete) {
+      if (onboardingIndex < onboardingQuestions.length - 1) {
+        setIsTyping(true);
+        await new Promise((resolve) => setTimeout(resolve, 350));
+
+        const nextQuestion = onboardingQuestions[onboardingIndex + 1];
+        const nextQuestionMessage: Message = {
+          ...nextQuestion,
+          id: `onboard-${onboardingIndex + 1}-${Date.now()}`,
+        };
+
+        setMessages((prev) => [...prev, nextQuestionMessage]);
+        historyRef.current = [
+          ...priorHistory,
+          { role: "user", content: text },
+          { role: "assistant", content: nextQuestionMessage.text },
+        ];
+        setOnboardingIndex((prev) => prev + 1);
+        setIsTyping(false);
+        return;
+      }
+
+      setOnboardingComplete(true);
+    }
+
+    setIsSending(true);
+    setIsTyping(true);
+
+    try {
+      const response = await sendChatMessage({
+        message: text,
+        history: priorHistory,
+      });
+
+      const botMessage = mapApiResponseToMessage(response);
+
+      setMessages((prev) => [...prev, botMessage]);
+      historyRef.current = [
+        ...priorHistory,
+        { role: "user", content: text },
+        { role: "assistant", content: botMessage.text },
+      ];
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      const errorText = `Backend request failed: ${message}`;
       setMessages((prev) => [
         ...prev,
         {
-          id: (Date.now() + 1).toString(),
+          id: `bot-error-${Date.now()}`,
           role: "bot",
-          text: "Thanks! Based on your answers I'll narrow down some recommended products.",
-          product: {
-            name: "Product A",
-            sku: "12345",
-            description: "Covers common use-cases and matches your compatibility requirements.",
-          },
+          text: errorText,
         },
       ]);
+      historyRef.current = [
+        ...priorHistory,
+        { role: "user", content: text },
+        { role: "assistant", content: errorText },
+      ];
+    } finally {
       setIsTyping(false);
+      setIsSending(false);
     }
   };
 
@@ -130,6 +238,7 @@ function App() {
           messages={messages}
           onSend={handleSend}
           isTyping={isTyping}
+          disabled={isSending}
           onShowProduct={(product) => setModalProduct(product)}
         />
       </div>
