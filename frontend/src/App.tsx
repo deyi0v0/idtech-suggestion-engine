@@ -53,6 +53,26 @@ function asStringArray(value: unknown): string[] {
     .filter((item) => item.length > 0);
 }
 
+function asBoolean(value: unknown): boolean {
+  return typeof value === "boolean" ? value : false;
+}
+
+function buildFallbackRecommendationMessage(): Message {
+  const fallbackProduct: Product = {
+    name: "ID TECH Recommended Bundle",
+    sku: "Recommended",
+    description:
+      "We could not retrieve a live backend recommendation, so this is a temporary suggested bundle. Please review with support for final device selection.",
+  };
+
+  return {
+    id: `bot-fallback-${Date.now()}`,
+    role: "bot",
+    text: "I have enough information to recommend a product. Open the recommendation details below.",
+    product: fallbackProduct,
+  };
+}
+
 function mapApiResponseToMessage(response: ChatApiResponse): Message {
   const content = typeof response.content === "string" ? response.content : "";
   const choices = asStringArray(response.choices);
@@ -189,6 +209,9 @@ function App() {
       const botMessage = mapApiResponseToMessage(response);
 
       setMessages((prev) => [...prev, botMessage]);
+      if (botMessage.product && asBoolean(response.show_recommendation_modal)) {
+        setModalProduct(botMessage.product);
+      }
       historyRef.current = [
         ...priorHistory,
         { role: "user", content: text },
@@ -196,20 +219,33 @@ function App() {
       ];
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
-      const errorText = `Backend request failed: ${message}`;
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `bot-error-${Date.now()}`,
-          role: "bot",
-          text: errorText,
-        },
-      ]);
-      historyRef.current = [
-        ...priorHistory,
-        { role: "user", content: text },
-        { role: "assistant", content: errorText },
-      ];
+      const shouldFallbackToRecommendation = onboardingComplete;
+
+      if (shouldFallbackToRecommendation) {
+        const fallbackMessage = buildFallbackRecommendationMessage();
+        setMessages((prev) => [...prev, fallbackMessage]);
+        setModalProduct(fallbackMessage.product ?? null);
+        historyRef.current = [
+          ...priorHistory,
+          { role: "user", content: text },
+          { role: "assistant", content: fallbackMessage.text },
+        ];
+      } else {
+        const errorText = `Backend request failed: ${message}`;
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `bot-error-${Date.now()}`,
+            role: "bot",
+            text: errorText,
+          },
+        ]);
+        historyRef.current = [
+          ...priorHistory,
+          { role: "user", content: text },
+          { role: "assistant", content: errorText },
+        ];
+      }
     } finally {
       setIsTyping(false);
       setIsSending(false);

@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import select, or_
+from sqlalchemy import select, String
 from ..models.hardware import Hardware
 from ..models.software import Software
 from ..models.category import Category
@@ -47,7 +47,7 @@ class ProductRepository:
 
         if extra_filter:
             # Search inside the JSONB extra_specs field
-            filters.append(Hardware.extra_specs.cast(str).ilike(f"%{extra_filter}%"))
+            filters.append(Hardware.extra_specs.cast(String).ilike(f"%{extra_filter}%"))
 
         if query:
             filters.append(Hardware.model_name.ilike(f"%{query}%"))
