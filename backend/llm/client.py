@@ -3,12 +3,15 @@ import json
 from openai import OpenAI
 from typing import List, Dict, Any
 from .prompts import build_chat_prompt, TOOLS
-from engine.rulesEngine.product_filtering import product_filtering
-from db.session import SessionLocal
+from ..engine.rulesEngine.product_filtering import product_filtering
+from ..db.session import SessionLocal
 
 class LLMClient:
     def __init__(self):
-        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise ValueError("OPENAI_API_KEY is not set in environment variables.")
+        self.client = OpenAI(api_key=api_key)
         self.model = "gpt-4o-mini"
 
     def get_chat_response(self, message: str, history: List[Dict[str, str]]) -> Dict[str, Any]:
@@ -64,9 +67,12 @@ class LLMClient:
         
         return json.loads(final_response.choices[0].message.content)
 
-# Instantiate the client
-_client_instance = LLMClient()
+# Lazily instantiate to avoid import-time failures during app startup.
+_client_instance: LLMClient | None = None
 
 # Exported function for easy access
 def get_chat_response(message: str, history: List[Dict[str, str]]) -> Dict[str, Any]:
+    global _client_instance
+    if _client_instance is None:
+        _client_instance = LLMClient()
     return _client_instance.get_chat_response(message, history)

@@ -1,12 +1,12 @@
-import os
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-from .routers import chat, pdf
+# Load backend/.env before importing routers that may initialize services.
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
-# Load environment variables
-load_dotenv()
+from .routers import chat, pdf
 
 app = FastAPI(title="ID TECH Suggestion Engine")
 
