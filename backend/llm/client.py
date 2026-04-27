@@ -2,9 +2,14 @@ import os
 import json
 from openai import OpenAI
 from typing import List, Dict, Any
+from dotenv import load_dotenv
 from .prompts import build_chat_prompt, TOOLS
-from engine.rulesEngine.product_filtering import product_filtering
-from db.session import SessionLocal
+from ..engine.rulesEngine.product_filtering import product_filtering
+from ..db.session import SessionLocal
+from ..engine.solution_schemas import RecommendationBundle
+
+# Ensure environment variables are loaded
+load_dotenv()
 
 class LLMClient:
     def __init__(self):
@@ -29,7 +34,7 @@ class LLMClient:
         tool_calls = response_message.tool_calls
 
         if not tool_calls:
-            return {"content": response_message.content} # just talk to user if no tool calls, this can be used for simple conversations without recommendations
+            return {"content": response_message.content} # just talk to user if no tool calls
 
         # Handle Tool Calls
         messages.append(response_message)
@@ -62,7 +67,18 @@ class LLMClient:
             response_format={"type": "json_object"}
         )
         
-        return json.loads(final_response.choices[0].message.content)
+        raw_json = json.loads(final_response.choices[0].message.content)
+
+        # If it looks like a RecommendationBundle, validate it
+        if "hardware_name" in raw_json:
+            try:
+                bundle = RecommendationBundle(**raw_json)
+                return bundle.model_dump()
+            except Exception:
+                # Fallback to raw if validation fails
+                return raw_json
+        
+        return raw_json
 
 # Instantiate the client
 _client_instance = LLMClient()

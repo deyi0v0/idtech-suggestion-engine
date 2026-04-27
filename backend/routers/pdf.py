@@ -1,18 +1,11 @@
 from fastapi import APIRouter, Response
-from pydantic import BaseModel
-from typing import List, Dict, Any, Optional
 from ..pdf_generator import generate_pdf
+from ..engine.solution_schemas import RecommendationBundle
 
 router = APIRouter()
 
-class PDFRequest(BaseModel):
-    hardware_name: str
-    software_name: Optional[str] = None
-    highlights: List[str] = []
-    explanation: str
-
 @router.post("/generate")
-async def generate_pdf_endpoint(bundle: PDFRequest):
+async def generate_pdf_endpoint(bundle: RecommendationBundle):
     """
     Receives the RecommendationBundle and returns a downloadable PDF.
     """

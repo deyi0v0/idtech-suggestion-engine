@@ -3,14 +3,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-from .routers import chat, pdf
-
-# Load environment variables
+# Load environment variables before importing routers
 load_dotenv()
+
+from .routers import chat, pdf
 
 app = FastAPI(title="ID TECH Suggestion Engine")
 
-# Add CORS middleware
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"], # Vite frontend default
@@ -19,7 +19,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include Routers
 app.include_router(chat.router, prefix="/api", tags=["Chat"])
 app.include_router(pdf.router, prefix="/api/pdf", tags=["PDF"])
 

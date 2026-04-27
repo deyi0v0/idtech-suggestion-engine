@@ -16,7 +16,9 @@ def product_filtering(db: Session, constraints: Dict[str, Any]) -> List[Dict[str
         interface=constraints.get("interface"),
         temp=constraints.get("operate_temperature"),
         extra_filter=constraints.get("extra_specs_filter"),
-        query=constraints.get("search_query")
+        query=constraints.get("search_query"),
+        is_outdoor=constraints.get("is_outdoor"),
+        is_standalone=constraints.get("is_standalone")
     )
 
     # 2. Format the result into rich JSON for the LLM
