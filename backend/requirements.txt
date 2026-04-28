@@ -1,9 +1,12 @@
 fastapi
 uvicorn[standard]
 sqlalchemy
+psycopg2-binary
 pydantic
 openai
 fpdf2
 python-dotenv
 pytest
 httpx
+requests
+lxml
