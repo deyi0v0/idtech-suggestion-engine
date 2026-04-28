@@ -1,0 +1,1 @@
+export default function Dashboard() { return <div className='text-white p-10'><h1>Admin Dashboard</h1><nav><ul className='underline'><li><a href='/admin/hardware'>Manage Hardware</a></li><li><a href='/admin/software'>Manage Software</a></li><li><a href='/admin/prompts'>Manage Prompts</a></li><li><a href='/admin/docs'>Manage Docs</a></li></ul></nav></div> }
