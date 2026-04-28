@@ -3,8 +3,8 @@ import json
 from openai import OpenAI
 from typing import List, Dict, Any
 from .prompts import build_chat_prompt, TOOLS
-from ..engine.rulesEngine.product_filtering import product_filtering
-from ..db.session import SessionLocal
+from engine.rulesEngine.product_filtering import product_filtering
+from db.session import SessionLocal
 
 class LLMClient:
     def __init__(self):

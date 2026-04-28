@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 # Load backend/.env before importing routers that may initialize services.
 load_dotenv(Path(__file__).resolve().parent / ".env")
 
-from .routers import chat, pdf
+from routers import chat, pdf
 
 app = FastAPI(title="ID TECH Suggestion Engine")
 

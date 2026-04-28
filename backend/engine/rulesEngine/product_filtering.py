@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from typing import Dict, Any, List
-from ...db.repositories.product_query import ProductRepository
+from db.repositories.product_query import ProductRepository
 
 def product_filtering(db: Session, constraints: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
