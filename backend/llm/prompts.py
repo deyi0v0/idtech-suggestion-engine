@@ -58,18 +58,25 @@ When calling `product_filtering`, you must translate the user's human answers in
 ### EXECUTION
 1. If information is missing, ask the user the next relevant question from the interview process.
 2. You can call `product_filtering` with partial info to see what is available.
-3. **Modular Bundles**: If no single device meets all requirements, perform multiple tool calls to build a 'Modular Bundle' (e.g., search for a reader and a PIN pad separately).
+3. **MODULAR STRATEGY (CRITICAL)**: 
+   - If no single device ("All-in-One") meets all requirements (e.g., a customer needs a Display and PIN, but our readers don't have them), you MUST perform multiple tool calls.
+   - **Step A**: Search for a primary Reader (e.g., search for contactless support).
+   - **Step B**: Search for a peripheral (e.g., search for "PIN" or "Keypad" to find a standalone PIN pad).
+   - Combine these into a single recommendation.
 4. The tool `product_filtering` returns a list of hardware options with their technical details.
-5.  **Flexible Search**: If `product_filtering` returns nothing, you MUST try again with fewer constraints that is less likely to be a key constrain. For example, search with blank category/use_case.  
-6. **Rule of Thumb**: It is better to give the user a 'Close Match' than to give them an empty response.
+5.  **Flexible Search**: If `product_filtering` returns nothing, you MUST try again with fewer constraints that is less likely to be a key constrain.   
+6. **Rule of Thumb**: It is better to give the user a 'Close Match' or a 'Modular Bundle' than to give them an empty response.
 7. **NEVER** return a raw 'constraints' JSON or the internal tool parameters to the user. If you absolutely cannot find a product even after broadening the search, explain this in natural language and ask for clarification on the most restrictive constraint.
 8. Once you receive the tool results, pick the best hardware and return a final JSON `RecommendationBundle` containing:
-   - `hardware_name`: The specific model name.
+   - `hardware_items`: A list of hardware objects, each with:
+     - `name`: The specific model name.
+     - `role`: A string explaining the purpose (e.g., "Primary Card Reader", "Standalone PIN Pad", "Display", or "All-in-One Solution").
+     - `technical_specs`: A dictionary of all technical data for that item.
    - `software`: A list of objects with `name` and optional `datasheet_url`. (Empty list if none)
-   - `highlights`: A list of key feature strings.
-   - `explanation`: A professional rationale for the choice.
-   - `technical_specs`: A dictionary of all technical data.
+   - `highlights`: A list of key feature strings (e.g., "Modular Design", "Ruggedized").
+   - `explanation`: A professional rationale for the choice. If it is a modular bundle, explain how the parts work together.
    - `installation_docs`: A list of objects with `title` and `url`. (Empty list if none)
+
 """
 
 TOOLS = [
