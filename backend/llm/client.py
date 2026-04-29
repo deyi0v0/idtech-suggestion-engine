@@ -70,7 +70,7 @@ class LLMClient:
         raw_json = json.loads(final_response.choices[0].message.content)
 
         # If it looks like a RecommendationBundle, validate it
-        if "hardware_name" in raw_json:
+        if "hardware_items" in raw_json:
             try:
                 bundle = RecommendationBundle(**raw_json)
                 return bundle.model_dump()
