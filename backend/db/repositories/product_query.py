@@ -43,7 +43,8 @@ class ProductRepository:
             power_val = input_power.upper()
             power_filters = [
                 Hardware.input_power.ilike(f"%{input_power}%"),
-                Hardware.extra_specs.cast(String).ilike(f"%{input_power}%")
+                Hardware.extra_specs.cast(String).ilike(f"%{input_power}%"),
+                Hardware.input_power.is_(None) # Allow NULL if power is requested
             ]
             
             # Handle VAC/AC synonym
@@ -67,7 +68,8 @@ class ProductRepository:
         if interface:
             filters.append(or_(
                 Hardware.interface.ilike(f"%{interface}%"),
-                Hardware.extra_specs.cast(String).ilike(f"%{interface}%")
+                Hardware.extra_specs.cast(String).ilike(f"%{interface}%"),
+                Hardware.interface.is_(None) # Allow NULL if interface is requested
             ))
 
         if temp:
