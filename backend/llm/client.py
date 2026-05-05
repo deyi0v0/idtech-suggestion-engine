@@ -2,16 +2,18 @@ import os
 import json
 from openai import OpenAI
 from typing import List, Dict, Any
+from dotenv import load_dotenv
 from .prompts import build_chat_prompt, TOOLS
-from engine.rulesEngine.product_filtering import product_filtering
-from db.session import SessionLocal
+from ..engine.rulesEngine.product_filtering import product_filtering
+from ..db.session import SessionLocal
+from ..engine.solution_schemas import RecommendationBundle
+
+# Ensure environment variables are loaded
+load_dotenv()
 
 class LLMClient:
     def __init__(self):
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise ValueError("OPENAI_API_KEY is not set in environment variables.")
-        self.client = OpenAI(api_key=api_key)
+        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.model = "gpt-4o-mini"
 
     def get_chat_response(self, message: str, history: List[Dict[str, str]]) -> Dict[str, Any]:
@@ -32,7 +34,7 @@ class LLMClient:
         tool_calls = response_message.tool_calls
 
         if not tool_calls:
-            return {"content": response_message.content} # just talk to user if no tool calls, this can be used for simple conversations without recommendations
+            return {"content": response_message.content} # just talk to user if no tool calls
 
         # Handle Tool Calls
         messages.append(response_message)
@@ -65,14 +67,22 @@ class LLMClient:
             response_format={"type": "json_object"}
         )
         
-        return json.loads(final_response.choices[0].message.content)
+        raw_json = json.loads(final_response.choices[0].message.content)
 
-# Lazily instantiate to avoid import-time failures during app startup.
-_client_instance: LLMClient | None = None
+        # If it looks like a RecommendationBundle, validate it
+        if "hardware_items" in raw_json:
+            try:
+                bundle = RecommendationBundle(**raw_json)
+                return bundle.model_dump()
+            except Exception:
+                # Fallback to raw if validation fails
+                return raw_json
+        
+        return raw_json
+
+# Instantiate the client
+_client_instance = LLMClient()
 
 # Exported function for easy access
 def get_chat_response(message: str, history: List[Dict[str, str]]) -> Dict[str, Any]:
-    global _client_instance
-    if _client_instance is None:
-        _client_instance = LLMClient()
     return _client_instance.get_chat_response(message, history)

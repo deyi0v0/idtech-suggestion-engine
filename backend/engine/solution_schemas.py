@@ -1,28 +1,22 @@
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 
 class InstallationDoc(BaseModel):
     title: str
     url: str
 
-class HardwareRecommendation(BaseModel):
-    model_name: str
-    info: str
-    operate_temperature: Optional[str] = None
-    ip_rating: Optional[str] = None
-    ik_rating: Optional[str] = None
-    interface: Optional[str] = None
-    extra_specs: Optional[dict] = None
-    installation_docs: List[InstallationDoc] = []
-
 class SoftwareRecommendation(BaseModel):
     name: str
-    info: str
     datasheet_url: Optional[str] = None
 
+class HardwareRecommendation(BaseModel):
+    name: str
+    role: str # e.g., "Primary Card Reader", "Standalone PIN Pad", "Display", or "All-in-One Terminal"
+    technical_specs: Dict[str, Any] = {}
+
 class RecommendationBundle(BaseModel):
-    hardware: HardwareRecommendation
+    hardware_items: List[HardwareRecommendation]
     software: List[SoftwareRecommendation] = []
-    llm_reasoning: str
-    use_case: Optional[str] = None
-    generated_at = None
+    highlights: List[str] = []
+    explanation: str
+    installation_docs: List[InstallationDoc] = []
