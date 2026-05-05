@@ -44,7 +44,7 @@ export default function ChatWindow({
   }, [messages, isTyping]);
 
   return (
-    <div className="mx-auto min-w-[50vh] max-w-[50vh] px-6 py-8 flex flex-col min-h-[90vh] border-4 rounded-s overflow-hidden chat-bg text-primary" style={{ borderColor: "var(--border)" }}>
+    <div className="mx-auto min-w-[50vh] max-w-[50vh] px-6 py-8 flex flex-col h-[90vh] border-4 rounded-s overflow-hidden chat-bg text-primary" style={{ borderColor: "var(--border)" }}>
       {/* Header */}
       <div className="flex items-center gap-2.5 px-4 py-3 border-b-2 shrink-0" style={{ borderColor: "var(--border)" }}>
         <div>
