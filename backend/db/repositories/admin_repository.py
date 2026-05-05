@@ -250,3 +250,68 @@ class AdminRepository:
         # ON DELETE CASCADE - see backend/db_scripts/00_schema.sql.
         self.db.delete(row)
         self.db.commit()
+
+    #-----Start of software table----
+    def create_software(self, name: str, extra_fields: Optional[Dict[str, Any]] = None):
+        clean = (name or "").strip()
+    
+        if not clean:
+            raise ValueError("software name is required")
+    
+        existing = self.db.execute(
+            select(Software).where(Software.name.ilike(clean))
+        ).scalar_one_or_none()
+    
+        if existing is not None:
+            raise DuplicateError(f"software '{clean}' already exists")
+    
+        software = Software(
+            name=clean,
+            extra_fields=extra_fields or {}
+        )
+    
+        self.db.add(software)
+    
+        try:
+            self.db.commit()
+        except IntegrityError:
+            self.db.rollback()
+            raise DuplicateError(f"software '{clean}' already exists")
+    
+        self.db.refresh(software)
+        return software
+
+    def update_software(self, name: str, *, new_name: Optional[str] = None, extra_fields: Optional[Dict[str, Any]] = None):
+        software = self.db.execute(
+            select(Software).where(Software.name == name)
+        ).scalar_one_or_none()
+    
+        if software is None:
+            raise NotFoundError(f"software '{name}' not found")
+    
+        if new_name:
+            clean_new_name = new_name.strip()
+    
+            if not clean_new_name:
+                raise ValueError("software name is required")
+    
+            collision = self.db.execute(
+                select(Software).where(Software.name.ilike(clean_new_name))
+            ).scalar_one_or_none()
+    
+            if collision is not None and collision.id != software.id:
+                raise DuplicateError(f"software '{clean_new_name}' already exists")
+    
+            software.name = clean_new_name
+    
+        if extra_fields is not None:
+            current = software.extra_fields or {}
+
+            software.extra_fields = {
+                **current,
+                **extra_fields
+            }
+    
+        self.db.commit()
+        self.db.refresh(software)
+        return software
