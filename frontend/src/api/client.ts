@@ -8,6 +8,10 @@ export interface ChatRequest {
   history?: ChatHistoryItem[];
 }
 
+export interface ForceChatRequest extends ChatRequest {
+  force_recommendation?: boolean;
+}
+
 export type ChatResponse = Record<string, unknown>;
 
 export interface PDFRequest {
@@ -29,6 +33,16 @@ async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
 }
 
 export async function sendChatMessage(chatRequest: ChatRequest): Promise<ChatResponse> {
+  const response = await apiFetch("/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(chatRequest),
+  });
+
+  return response.json() as Promise<ChatResponse>;
+}
+
+export async function forceChatMessage(chatRequest: ForceChatRequest): Promise<ChatResponse> {
   const response = await apiFetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

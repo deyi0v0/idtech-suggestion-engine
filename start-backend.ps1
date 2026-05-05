@@ -55,6 +55,38 @@ if (-not (Test-Path $envFile)) {
     Write-Warning "Missing backend/.env. Create it with OPENAI_API_KEY and DATABASE_URL before sending chat requests."
 }
 
+# Load env file values into the current process environment so the Python uvicorn process inherits them
+if (Test-Path $envFile) {
+    Write-Host "Loading environment variables from $envFile"
+    Get-Content $envFile | ForEach-Object {
+        if ($_ -and -not ($_ -match '^\s*#')) {
+            $parts = $_ -split '='; if ($parts.Length -ge 2) {
+                $name = $parts[0].Trim();
+                $value = ($parts[1..($parts.Length-1)] -join '=').Trim();
+                try {
+                    Set-Item -Path "Env:$name" -Value $value -ErrorAction Stop
+                } catch {
+                    [System.Environment]::SetEnvironmentVariable($name, $value)
+                }
+            }
+        }
+    }
+}
+
+# If running the backend locally (not inside Docker) and the DATABASE_URL points
+# to the container host `db`, rewrite it to `localhost` so local Python process can connect.
+if ($env:DATABASE_URL) {
+    if ($env:DATABASE_URL -match '@db:') {
+        Write-Host "Adjusting DATABASE_URL host 'db' -> 'localhost' for local backend run"
+        $newUrl = $env:DATABASE_URL -replace '@db:', '@localhost:'
+        try {
+            Set-Item -Path "Env:DATABASE_URL" -Value $newUrl -ErrorAction Stop
+        } catch {
+            [System.Environment]::SetEnvironmentVariable('DATABASE_URL', $newUrl)
+        }
+    }
+}
+
 Write-Host "Starting backend API at http://localhost:8000 ..."
 Push-Location $repoRoot
 try {
