@@ -1,12 +1,8 @@
 import SampleChat from "./components/SampleChat"
-import Dashboard from "./pages/maintenance/Dashboard"
-// import HardwareManager from "./pages/maintenance/HardwareManager"
-// import SoftwareManager from "./pages/maintenance/SoftwareManager"
-// import PromptManager from "./pages/maintenance/PromptManager"
-// import DocManager from "./pages/maintenance/DocManager"
 import AdminLayout from './pages/maintenance/AdminLayout';
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import HardwareManager from "./pages/maintenance/HardwareManager";
+import AddHardware from "./pages/maintenance/AddHardware";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
 function App() {
   return (
@@ -21,8 +17,9 @@ function App() {
         } />
 
         {/* Maintenance Portal */}
-        <Route path="/admin" element={<AdminLayout />}> 
+        <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<HardwareManager />} />
+            <Route path="hardware/add" element={<AddHardware />} />
         </Route>
         {/* <Route path="/admin/hardware" element={<HardwareManager />} />
         <Route path="/admin/software" element={<SoftwareManager />} />

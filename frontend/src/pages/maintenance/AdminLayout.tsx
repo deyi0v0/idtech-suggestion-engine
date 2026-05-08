@@ -1,14 +1,15 @@
 import { Outlet } from "react-router";
+import "./admin.css";
 
 export default function AdminLayout() {
     return (
-        <div className="flex bg-black w-screen h-screen items-center">
-            <div className="flex flex-col bg-white h-full grow-1"> 
-                <nav className="flex pl-5 m-0 bg-white w-full min-h-[64px] items-end border-b-2">
+        <div className="flex bg-black w-screen h-screen overflow-hidden items-center">
+            <div className="flex flex-col bg-white h-full flex-1 min-w-0">
+                <nav className="flex pl-5 m-0 bg-white w-full min-h-16 items-end border-b-2 shrink-0">
                     <h1 className="font-semibold text-4xl">Admin Portal</h1>
                 </nav>
-                <div id="dashboard-page" className="flex flex-col p-5 bg-white grow-1">
-                    <div className="flex bg-white border grow-1">
+                <div id="dashboard-page" className="flex flex-col p-5 bg-white flex-1 min-h-0 overflow-hidden">
+                    <div className="flex bg-white flex-1 min-h-0 overflow-hidden">
                         <Outlet />
                     </div>
                 </div>
