@@ -106,3 +106,21 @@ def delete_hardware(model_name: str, db: Session = Depends(get_db)):
     except NotFoundError as e:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(e))
     return None
+
+# @router.get("/")
+# def get_all_hardware(db: Session = Depends(get_db)):
+#     try:
+#         stmt = select(
+#             Hardware.id,
+#             Hardware.model_name,
+#             Hardware.operate_temperature,
+#             Hardware.input_power,
+#             Hardware.ip_rating,
+#             Hardware.ik_rating,
+#             Hardware.interface,
+#         ).order_by(Hardware.model_name)
+#         rows = db.execute(stmt).mappings().all()
+#         return [dict(r) for r in rows]
+#     except Exception as e:
+#         print(f"ERROR in get_all_hardware: {type(e).__name__}: {e}")
+#         raise HTTPException(status_code=500, detail=str(e))
