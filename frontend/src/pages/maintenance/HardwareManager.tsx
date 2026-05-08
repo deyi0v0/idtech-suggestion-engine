@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ColorButton from "./components/ColorButton";
+import ConfirmModal from "./components/ConfirmModal";
 import DataTable, { ColumnDef } from "./components/DataTable";
 
 type HardwareDevice = {
@@ -27,8 +28,9 @@ export default function HardwareManager() {
     const [devices, setDevices] = useState<HardwareDevice[]>([]);
     const [selectedId, setSelectedId] = useState<number | null>(null);
     const [loading, setLoading] = useState(true);
-
     const [error, setError] = useState<string | null>(null);
+    const [showModal, setShowModal] = useState(false);
+    const [deleting, setDeleting] = useState(false);
 
     useEffect(() => {
         fetch("http://localhost:8000/api/maintenance/hardware/")
@@ -44,9 +46,29 @@ export default function HardwareManager() {
             .finally(() => setLoading(false));
     }, []);
 
-    function handleRemove() {
-        console.log("Remove device:", selectedId);
+    async function handleConfirmRemove() {
+        if (selectedId === null) return;
+        setDeleting(true);
+        try {
+            const res = await fetch(`http://localhost:8000/api/maintenance/hardware/${selectedId}`, {
+                method: "DELETE",
+            });
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.detail ?? `Server error: ${res.status}`);
+            }
+            setDevices((prev) => prev.filter((d) => d.id !== selectedId));
+            setSelectedId(null);
+            setShowModal(false);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Unknown error");
+            setShowModal(false);
+        } finally {
+            setDeleting(false);
+        }
     }
+
+    const selectedDevice = devices.find((d) => d.id === selectedId) ?? null;
 
     return (
         <div className="flex flex-col p-0 text-black grow gap-3 min-h-0">
@@ -82,19 +104,32 @@ export default function HardwareManager() {
             <div className="flex min-h-fit min-w-fit">
                 <ColorButton
                     className="mr-1"
-                    color="#03A50E"
+                    color="var(--confirm-green)"
                     onClick={() => navigate("/admin/hardware/add")}
                 >
                     Add New Device
                 </ColorButton>
                 <ColorButton
-                    color="#DF1300"
+                    color="var(--warning-red)"
                     disabled={selectedId === null}
-                    onClick={handleRemove}
+                    onClick={() => setShowModal(true)}
                 >
                     Remove a Device
                 </ColorButton>
             </div>
+
+            {showModal && selectedDevice && (
+                <ConfirmModal
+                    title="Remove Device"
+                    message={`You are about to permanently remove "${selectedDevice.model_name}" from the database. This action cannot be undone.`}
+                    checkboxLabel="I understand this action is permanent."
+                    confirmLabel="Remove Device"
+                    cancelLabel="Go Back"
+                    loading={deleting}
+                    onConfirm={handleConfirmRemove}
+                    onCancel={() => setShowModal(false)}
+                />
+            )}
         </div>
     );
 }
