@@ -12,3 +12,14 @@
 @theme {
     --background: #FFFFFF;
 }
+
+.cell-scroll::-webkit-scrollbar {
+    height: 3px;
+}
+.cell-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+.cell-scroll::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 9999px;
+}
