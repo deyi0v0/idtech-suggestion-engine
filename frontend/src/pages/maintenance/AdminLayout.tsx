@@ -9,6 +9,7 @@ export default function AdminLayout() {
                     <h1 className="font-semibold text-4xl">Admin Portal</h1>
                 </nav>
                 <div id="dashboard-page" className="flex flex-col p-5 bg-white flex-1 min-h-0 overflow-hidden">
+                    {/* add border to this div for visualizing overflow issues */}
                     <div className="flex bg-white flex-1 min-h-0 overflow-hidden">
                         <Outlet />
                     </div>

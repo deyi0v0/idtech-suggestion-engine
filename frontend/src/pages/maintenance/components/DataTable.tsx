@@ -41,7 +41,7 @@ export default function DataTable<T extends { id: number }>({
                                 className={[
                                     "cursor-pointer border-b border-gray-200",
                                     isSelected
-                                        ? "bg-indigo-600 text-white"
+                                        ? "row-selected"
                                         : index % 2 === 0
                                         ? "bg-white text-gray-800 hover:bg-gray-50"
                                         : "bg-gray-50 text-gray-800 hover:bg-gray-100",
