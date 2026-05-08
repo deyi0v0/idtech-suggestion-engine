@@ -1,135 +1,37 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import ColorButton from "./components/ColorButton";
-import ConfirmModal from "./components/ConfirmModal";
-import DataTable, { ColumnDef } from "./components/DataTable";
-
-type HardwareDevice = {
-    id: number;
-    model_name: string;
-    operate_temperature: string | null;
-    input_power: string | null;
-    ip_rating: string | null;
-    ik_rating: string | null;
-    interface: string | null;
-};
-
-const COLUMNS: ColumnDef<HardwareDevice>[] = [
-    { header: "Model Name", key: "model_name" },
-    { header: "Operating Temp.", key: "operate_temperature" },
-    { header: "Input Power", key: "input_power" },
-    { header: "IP Rating", key: "ip_rating" },
-    { header: "IK Rating", key: "ik_rating" },
-    { header: "Interface", key: "interface" },
-];
 
 export default function HardwareManager() {
-    const navigate = useNavigate();
-    const [devices, setDevices] = useState<HardwareDevice[]>([]);
-    const [selectedId, setSelectedId] = useState<number | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [showModal, setShowModal] = useState(false);
-    const [deleting, setDeleting] = useState(false);
-
-    useEffect(() => {
-        fetch("http://localhost:8000/api/maintenance/hardware/")
-            .then((res) => {
-                if (!res.ok) throw new Error(`Server error: ${res.status}`);
-                return res.json();
-            })
-            .then((data) => {
-                if (!Array.isArray(data)) throw new Error("Unexpected response format");
-                setDevices(data);
-            })
-            .catch((err) => setError(err.message))
-            .finally(() => setLoading(false));
-    }, []);
-
-    async function handleConfirmRemove() {
-        if (selectedId === null) return;
-        setDeleting(true);
-        try {
-            const res = await fetch(`http://localhost:8000/api/maintenance/hardware/${selectedId}`, {
-                method: "DELETE",
-            });
-            if (!res.ok) {
-                const data = await res.json().catch(() => ({}));
-                throw new Error(data.detail ?? `Server error: ${res.status}`);
-            }
-            setDevices((prev) => prev.filter((d) => d.id !== selectedId));
-            setSelectedId(null);
-            setShowModal(false);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : "Unknown error");
-            setShowModal(false);
-        } finally {
-            setDeleting(false);
-        }
-    }
-
-    const selectedDevice = devices.find((d) => d.id === selectedId) ?? null;
-
     return (
-        <div className="flex flex-col p-0 text-black grow gap-3 min-h-0">
+        <div className='flex flex-col p-0 text-black grow'>
             <div>
-                <h1 className="font-semibold text-2xl">Devices</h1>
-                <p className="text-gray-600 text-sm">
+                <h1 className="font-semibold text-2xl max-h-fit">
+                    Solution List - Hardware
+                </h1>
+                <p>
                     This is a list of the current devices that the AI is able to recommend,
                     as well as attributes that the AI model uses to recommend a device.
                 </p>
-                <p className="text-gray-600 text-sm">
-                    The table can be scrolled, and individual cells can be scrolled if the text overflows.
-                </p>
-                <p className="text-gray-600 text-sm">
-                    To remove a device, select the row and click "Remove Device." To add a device, click "Add Device."
-                </p>
             </div>
+            <br />
 
-            <div className="flex flex-col grow min-h-0 overflow-hidden">
-                {loading ? (
-                    <p className="text-gray-400 text-sm">Loading...</p>
-                ) : error ? (
-                    <p className="text-red-500 text-sm">Failed to load devices: {error}</p>
-                ) : (
-                    <DataTable
-                        columns={COLUMNS}
-                        data={devices}
-                        selectedId={selectedId}
-                        onSelectRow={setSelectedId}
-                    />
-                )}
+
+            <div className="flex flex-col bg-amber-300 grow-1">
+                <h1 className="font-semibold text-2xl max-h-fit">table goes here!</h1>
             </div>
 
             <div className="flex min-h-fit min-w-fit">
-                <ColorButton
-                    className="mr-1"
-                    color="var(--confirm-green)"
-                    onClick={() => navigate("/admin/hardware/add")}
-                >
-                    Add New Device
+                {/* This button needs an onClick handler to open an addDevice form page */}
+                <ColorButton className="mr-1" color="#03A50E" onClick={() => console.log("button clicked!")}>
+                    Add Device
                 </ColorButton>
-                <ColorButton
-                    color="var(--warning-red)"
-                    disabled={selectedId === null}
-                    onClick={() => setShowModal(true)}
-                >
-                    Remove a Device
+
+                {/* This button needs an onClick handler to remove the device selected
+                    by the user. The button should only be enabled if a device is selected. */}
+                <ColorButton color="#DF1300" onClick={() => console.log("button clicked!")}>
+                    Remove Device
                 </ColorButton>
             </div>
 
-            {showModal && selectedDevice && (
-                <ConfirmModal
-                    title="Remove Device"
-                    message={`You are about to permanently remove "${selectedDevice.model_name}" from the database. This action cannot be undone.`}
-                    checkboxLabel="I understand this action is permanent."
-                    confirmLabel="Remove Device"
-                    cancelLabel="Go Back"
-                    loading={deleting}
-                    onConfirm={handleConfirmRemove}
-                    onCancel={() => setShowModal(false)}
-                />
-            )}
         </div>
     );
 }
