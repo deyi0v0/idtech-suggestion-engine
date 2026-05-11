@@ -5,9 +5,7 @@ export default function AdminLayout() {
     return (
         <div className="flex bg-black w-screen h-screen overflow-hidden items-center">
             <div className="flex flex-col bg-white h-full flex-1 min-w-0">
-                <nav className="flex pl-5 m-0 bg-white w-full min-h-16 items-end border-b-2 shrink-0">
-                    <h1 className="font-semibold text-4xl">Admin Portal</h1>
-                </nav>
+                <DashboardNavbar />
                 <div id="dashboard-page" className="flex flex-col p-5 bg-white flex-1 min-h-0 overflow-hidden">
                     {/* add border to this div for visualizing overflow issues */}
                     <div className="flex bg-white flex-1 min-h-0 overflow-hidden">
@@ -17,6 +15,22 @@ export default function AdminLayout() {
             </div>
             <ChatbotPlaceholder/>
         </div>
+    );
+}
+
+function DashboardNavbar() {
+    return (
+        <nav className="flex justify-between pl-5 m-0 pr-5 bg-white w-full min-h-16 items-end border-b-2 shrink-0">
+            <h1 className="font-semibold text-4xl">Admin Portal</h1>
+            <div className="flex justify-between">
+                <a href="/admin/hardware" className="pr-2 text-gray-600 text-xl hover:text-gray-900">
+                    Hardware
+                </a>
+                <a href="/admin/software" className="text-gray-600 text-xl hover:text-gray-900">
+                    Software
+                </a>
+            </div>
+        </nav>
     );
 }
 

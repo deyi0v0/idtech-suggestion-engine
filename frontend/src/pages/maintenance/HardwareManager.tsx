@@ -73,16 +73,12 @@ export default function HardwareManager() {
     return (
         <div className="flex flex-col p-0 text-black grow gap-3 min-h-0">
             <div>
-                <h1 className="font-semibold text-2xl">Devices</h1>
+                <h1 className="font-semibold text-2xl">Hardware Devices</h1>
                 <p className="text-gray-600 text-sm">
-                    This is a list of the current devices that the AI is able to recommend,
-                    as well as attributes that the AI model uses to recommend a device.
+                    This is a list of the current hardware devices that the AI has knowledge of while making recommendations.
                 </p>
                 <p className="text-gray-600 text-sm">
-                    The table can be scrolled, and individual cells can be scrolled if the text overflows.
-                </p>
-                <p className="text-gray-600 text-sm">
-                    To remove a device, select the row and click "Remove Device." To add a device, click "Add Device."
+                    To remove a hardware device, select the row and click "Remove Device." To add a new hardware device, click "Add Device."
                 </p>
             </div>
 
@@ -107,14 +103,14 @@ export default function HardwareManager() {
                     color="var(--confirm-green)"
                     onClick={() => navigate("/admin/hardware/add")}
                 >
-                    Add New Device
+                    Add Device
                 </ColorButton>
                 <ColorButton
                     color="var(--warning-red)"
                     disabled={selectedId === null}
                     onClick={() => setShowModal(true)}
                 >
-                    Remove a Device
+                    Remove Device
                 </ColorButton>
             </div>
 
