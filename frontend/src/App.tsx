@@ -3,7 +3,6 @@ import SampleChat from "./components/SampleChat"
 import AdminLayout from './pages/maintenance/AdminLayout';
 import HardwareManager from "./pages/maintenance/HardwareManager";
 import AddHardware from "./pages/maintenance/AddHardware";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
 function App() {
   return (
