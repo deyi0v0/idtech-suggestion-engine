@@ -279,7 +279,7 @@ class ChatService:
             type="question",
             text=llm_result.get("reply", "") or "",
             quick_replies=self._resolve_quick_replies(
-                next_state,
+                state,
                 llm_result.get("reply", "") or "",
                 llm_result.get("suggested_choices", []),
             ),
