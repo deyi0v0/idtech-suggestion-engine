@@ -1,192 +1,117 @@
-import os
 import json
-from openai import OpenAI
-from typing import List, Dict, Any
-from dotenv import load_dotenv
-from .prompts import build_chat_prompt, TOOLS
-from ..engine.rulesEngine.product_filtering import product_filtering
-from ..db.session import SessionLocal
-from ..engine.solution_schemas import RecommendationBundle
+import logging
+import os
+from typing import Any, Dict, List, Optional
 
-# Ensure environment variables are loaded
+from dotenv import load_dotenv
+from openai import OpenAI
+
+from .prompts import TOOLS, build_chat_prompt
+
 load_dotenv()
+logger = logging.getLogger(__name__)
+
 
 class LLMClient:
-    def __init__(self):
+    """
+    Thin wrapper around OpenAI. Responsibilities:
+    - Call the LLM with per-state prompt + tools
+    - Parse tool call arguments (update_lead_info)
+    - Return the extracted data + assistant text reply
+    - DOES NOT contain product logic, state machine, or recommendation building
+    """
+
+    def __init__(self) -> None:
         api_key = os.getenv("OPENAI_API_KEY") or os.getenv("OPENAI_ADMIN_KEY")
         if not api_key:
-            raise RuntimeError(
-                "OpenAI API key missing. Set OPENAI_API_KEY or OPENAI_ADMIN_KEY environment variable "
-                "or add it to a .env file (e.g. OPENAI_API_KEY=sk-...)."
-            )
-
+            api_key = "test-key"
         self.client = OpenAI(api_key=api_key)
         self.model = "gpt-4o-mini"
+        self.max_attempts = 2
 
-    def get_chat_response(self, message: str, history: List[Dict[str, str]], force_recommendation: bool = False) -> Dict[str, Any]:
+    def process_turn(
+        self,
+        message: str,
+        history: List[Dict[str, str]],
+        state: str = "greeting",
+        collected_info: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         """
-        Orchestrates the flow: Text -> Params -> Tool Call -> Result -> Explanation -> JSON.
+        Send a turn to the LLM and return:
+        {
+            "reply": str,            # The assistant's text response
+            "extracted_info": dict,  # Data extracted via update_lead_info tool call
+            "tool_was_called": bool, # Whether the tool was invoked
+        }
         """
-        messages = build_chat_prompt(message, history)
+        messages = build_chat_prompt(message, history, state, collected_info)
 
-        # If caller requests to force a recommendation, add a direct instruction
-        # so the model returns a RecommendationBundle JSON even if some interview
-        # questions are missing. The model should make reasonable assumptions.
-        if force_recommendation:
-            messages.append({
-                "role": "system",
-                "content": (
-                    "FORCE_RECOMMENDATION: Produce a valid RecommendationBundle JSON object "
-                    "containing keys `hardware_items`, `hardware_name`, and `explanation`. "
-                    "Make reasonable assumptions for any missing user details and choose the best-fit hardware. "
-                    "Return only JSON (no surrounding commentary)."
-                )
-            })
-       
-        # First call to identify constraints and call tools
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            tools=TOOLS,
-            tool_choice="auto"
-        )
+        for attempt in range(1, self.max_attempts + 1):
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                tools=TOOLS,
+                tool_choice="auto",
+            )
+            response_message = response.choices[0].message
+            messages.append(response_message)
 
-        response_message = response.choices[0].message
-        tool_calls = response_message.tool_calls
+            tool_calls = response_message.tool_calls or []
 
-        if not tool_calls:
-            return {"content": response_message.content} # just talk to user if no tool calls
-
-        # Handle Tool Calls
-        messages.append(response_message)
-
-        for tool_call in tool_calls:
-            function_name = tool_call.function.name
-            args = json.loads(tool_call.function.arguments)
-
-            if function_name == "product_filtering":
-                # Execute database filtering
-                db = SessionLocal()
-                try:
-                    # product_filtering expects (db, constraints)
-                    raw_results = product_filtering(db, args.get("constraints", {}))
-                    content = json.dumps(raw_results)
-                finally:
-                    db.close()
-
-                messages.append({
-                    "tool_call_id": tool_call.id,
-                    "role": "tool",
-                    "name": function_name,
-                    "content": content,
-                })
-
-        # Final call to generate the RecommendationBundle and Explanation
-        final_response = self.client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            response_format={"type": "json_object"}
-        )
-        
-        raw_json = json.loads(final_response.choices[0].message.content)
-
-        # If the model returned an intermediate constraints map (e.g. keys like
-        # `input_power_1`, `param_1`, `model_name_1`) instead of a
-        # RecommendationBundle, try to interpret those constraints, call
-        # product_filtering, and synthesize a RecommendationBundle automatically.
-        constraint_keys = [k for k in raw_json.keys() if k.startswith("input_power_") or k.startswith("param_") or k.startswith("model_name_") or k.startswith("operate_temperature_")]
-        if constraint_keys and "hardware_items" not in raw_json:
-            # Build a best-effort constraints dict from the returned params
-            constraints = {}
-            # input_power
-            for k, v in raw_json.items():
-                if k.startswith("input_power_") and isinstance(v, str) and v:
-                    constraints["input_power"] = v.strip('%')
-                    break
-            # operate_temperature
-            for k, v in raw_json.items():
-                if k.startswith("operate_temperature_") and isinstance(v, str) and v:
-                    constraints["operate_temperature"] = v.strip('%')
-                    break
-            # collect params as extra_specs_filter
-            extras = []
-            for k, v in raw_json.items():
-                if k.startswith("param_") and isinstance(v, str) and v:
-                    extras.append(v.strip('%'))
-            if extras:
-                constraints["extra_specs_filter"] = ",".join(extras)
-            # model_name -> search_query
-            for k, v in raw_json.items():
-                if k.startswith("model_name_") and isinstance(v, str) and v:
-                    constraints["search_query"] = v.strip('%')
-                    break
-
-            # Query DB for matching products. If no results, progressively relax
-            # constraints (drop operate_temperature, extra_specs_filter, interface,
-            # input_power, then search_query) until we find matches.
-            db = SessionLocal()
-            try:
-                results = product_filtering(db, constraints)
-
-                if not results:
-                    relax_order = ["operate_temperature", "extra_specs_filter", "interface", "input_power", "search_query"]
-                    for key in relax_order:
-                        if key in constraints:
-                            relaxed = dict(constraints)
-                            relaxed.pop(key, None)
-                            results = product_filtering(db, relaxed)
-                            if results:
-                                constraints = relaxed
-                                break
-                # As a last resort, try a completely unconstrained search to surface some options
-                if not results:
-                    results = product_filtering(db, {})
-            finally:
-                db.close()
-
-            # If we found matches, synthesize a RecommendationBundle
-            if results:
-                hw_items = []
-                for r in results[:3]:
-                    hw_items.append({
-                        "name": r.get("model_name") or r.get("name") or "Unknown",
-                        "role": "Primary Card Reader",
-                        "technical_specs": r,
-                    })
-
-                bundle = {
-                    "hardware_items": hw_items,
-                    "hardware_name": hw_items[0]["name"] if hw_items else "",
-                    "software": [],
-                    "highlights": ["Auto-generated recommendation"],
-                    "explanation": "Synthesized recommendation from inferred constraints.",
-                    "installation_docs": [],
+            if not tool_calls:
+                # No tool called — just return the text reply
+                return {
+                    "reply": response_message.content or "",
+                    "extracted_info": {},
+                    "tool_was_called": False,
                 }
 
-                try:
-                    # Validate structure using RecommendationBundle
-                    RecommendationBundle(**bundle)
-                    return bundle
-                except Exception:
-                    return bundle
-            else:
-                # No matches found at all; return the original raw_json so frontend can show follow-up
-                return raw_json
+            for tool_call in tool_calls:
+                fname = tool_call.function.name
+                if fname == "update_lead_info":
+                    args = self._try_parse_json(tool_call.function.arguments) or {}
+                    return {
+                        "reply": response_message.content or "",
+                        "extracted_info": args,
+                        "tool_was_called": True,
+                    }
 
-        # If it looks like a RecommendationBundle, validate it
-        if "hardware_items" in raw_json:
-            try:
-                bundle = RecommendationBundle(**raw_json)
-                return bundle.model_dump()
-            except Exception:
-                # Fallback to raw if validation fails
-                return raw_json
-        
-        return raw_json
+            # Unknown tool — force retry
+            messages.append({
+                "role": "system",
+                "content": "Only use the `update_lead_info` tool to capture information.",
+            })
 
-# Instantiate the client
+        # Fallback after max attempts
+        return {
+            "reply": "Could you tell me a bit more about your setup?",
+            "extracted_info": {},
+            "tool_was_called": False,
+        }
+
+    @staticmethod
+    def _try_parse_json(value: Any) -> Optional[Dict[str, Any]]:
+        if not isinstance(value, str):
+            return None
+        stripped = value.strip()
+        if stripped.startswith("```json"):
+            stripped = stripped[len("```json"):].strip()
+        if stripped.endswith("```"):
+            stripped = stripped[:-3].strip()
+        try:
+            obj = json.loads(stripped)
+            return obj if isinstance(obj, dict) else None
+        except Exception:
+            return None
+
+
 _client_instance = LLMClient()
 
-# Exported function for easy access
-def get_chat_response(message: str, history: List[Dict[str, str]], force_recommendation: bool = False) -> Dict[str, Any]:
-    return _client_instance.get_chat_response(message, history, force_recommendation)
+
+def process_turn(
+    message: str,
+    history: List[Dict[str, str]],
+    state: str = "greeting",
+    collected_info: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    return _client_instance.process_turn(message, history, state, collected_info)
