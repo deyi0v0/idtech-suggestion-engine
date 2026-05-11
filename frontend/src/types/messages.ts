@@ -19,4 +19,6 @@ export interface Message {
   answered?: boolean;
   selectedChoice?: string;
   product?: Product;
+  collectedInfo?: Record<string, unknown>;
+  nextState?: string;
 }
