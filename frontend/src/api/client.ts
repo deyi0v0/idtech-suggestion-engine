@@ -6,19 +6,32 @@ export interface ChatHistoryItem {
 export interface ChatRequest {
   message: string;
   history?: ChatHistoryItem[];
+  /** Structured info accumulated by the backend state machine. Sent back each turn. */
+  collected_info?: Record<string, unknown>;
 }
 
-export interface ForceChatRequest extends ChatRequest {
-  force_recommendation?: boolean;
-  debug_mode?: boolean;
+export interface InstallationDoc {
+  title: string;
+  url: string;
+}
+
+export interface HardwareRecommendation {
+  name: string;
+  role: string;
+  technical_specs?: Record<string, unknown>;
+}
+
+export interface SoftwareRecommendation {
+  name: string;
+  datasheet_url?: string;
 }
 
 export interface RecommendationBundle {
-  hardware_name: string;
-  hardware_items: Record<string, unknown>[];
-  explanation: string;
-  software?: Record<string, unknown>[];
+  hardware_items: HardwareRecommendation[];
+  software?: SoftwareRecommendation[];
   highlights?: string[];
+  explanation: string;
+  installation_docs?: InstallationDoc[];
 }
 
 export interface ChatResponse {
@@ -26,6 +39,11 @@ export interface ChatResponse {
   text: string;
   quick_replies?: string[];
   recommendation?: RecommendationBundle;
+  /** Extracted info from the LLM tool call, we will merge into collected_info on the frontend. */
+  new_info?: Record<string, unknown>;
+  /** The updated conversation state after processing this turn */
+  next_state?: string;
+  ui_actions?: string[];
   debug?: Record<string, unknown>;
 }
 
@@ -60,14 +78,9 @@ export async function sendChatMessage(chatRequest: ChatRequest): Promise<ChatRes
   return response.json() as Promise<ChatResponse>;
 }
 
-export async function forceChatMessage(chatRequest: ForceChatRequest): Promise<ChatResponse> {
-  const response = await apiFetch("/api/chat", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(chatRequest),
-  });
-
-  return response.json() as Promise<ChatResponse>;
+/** @deprecated Backend no longer has a separate force-recommendation endpoint. Use sendChatMessage instead. */
+export async function forceChatMessage(chatRequest: ChatRequest): Promise<ChatResponse> {
+  return sendChatMessage(chatRequest);
 }
 
 export async function downloadPDF(payload: PDFRequest): Promise<Blob> {
