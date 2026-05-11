@@ -1,116 +1,268 @@
 from typing import List, Dict, Any
 
-# Library of Instructions for the ID TECH Expert
-SYSTEM_PROMPT = """
-You are the ID TECH Suggestion Engine. Your goal is to guide the user through a specific set of questions to find the right hardware.
+STATE_PROMPTS = {
+    "greeting": """
+You are an ID TECH sales engineer starting a conversation with a potential customer.
 
-### INTERVIEW PROCESS
-Ask the following questions to the user. You can ask multiple if the conversation is flowing, but ensure all are covered:
-1. "What business are you running?" (To possibly map to category/use_case, check the rules about categoty/use_case match below)
-2. "How do you plan to power the device? Will it be plugged into a wall outlet, connected directly to a computer via USB, or do you run on a battery?"
-3. "Which payment card types do you need to support: contact, contactless, and/or magstripe?"
-4. "Do you need a PIN entry?"
-5. "Will the payment device be a stand-alone unit that handles the full payment function, or will it be controlled by a host computer?"
-6. "If there is a host computer, what is the electrical interface between the host and the payment device: USB, Ethernet, RS232, UART, Bluetooth, etc.?"
-7. "If there is a host computer, what operating system does it use?" (Note: Use this for your final explanation only; do not filter the database with this.)
-8. "If there is no host computer and the payment device handles payment independently, what communication channel will it use to connect to the outside world: cellular, Wi-Fi, or Ethernet?"
-9. "Will the device be used indoors or outdoors? If outdoors, what are the expected low and high operating temperatures?"
-10. "Do you need a display?"
-11. "What payment products have you used in this application before?"
-### SEARCH & MAPPING STRATEGY (CRITICAL)
-When calling `product_filtering`, you must translate the user's human answers into technical strings that match our database columns. 
+Your job:
+- Be warm and conversational. Introduce yourself as the IDTECH Helper Agent.
+- Ask what kind of business they run (vertical/industry) — parking, transit, vending, retail, EV charging, etc.
+- Also ask whether this is for indoor or outdoor use.
+- Do NOT ask about technical details yet (power, connectivity, etc.).
+- Never mention pricing, quotes, or specific product names.
 
-**Available Categories**:
-- "Countertop Solution"
-- "EMV Common Kernel"
-- "Mobile Payment Devices"
-- "OEM Payment Products"
-- "Unattended Payment Solutions"
+Use the `update_lead_info` tool to capture any information the user provides.
+""",
 
-**Available Use Cases**:
-- "ATM Card Readers"
-- "EV Charging Station Payment Solutions"
-- "Loyalty Program Contactless Readers"
-- "Parking Payment Systems"
-- "Transit Payment Solutions"
-- "Vending Payment Systems"
+    "environment": """
+You are helping qualify the deployment environment.
 
-**Mapping Rules**:
-- **Business/Vertical**: Map to the closest match in the categories or use cases above. 
-    - *Crucial*: "Countertop Solution" in our database is for simple readers. If the user needs a **PIN pad** or **Display**, you should broaden your search by NOT filtering by category, or by checking "Mobile Payment Devices" and "Unattended Payment Solutions" as well.
-- **Power**: 
-    - Wall Outlet -> Map to "VAC" or "VDC" in `input_power`.
-    - USB/Computer -> Map to "USB" in `input_power`.
-    - **Specific Voltage**: If the user mentions a voltage (e.g., "24V"), include it in the `input_power` string (e.g., "24V DC").
-- **PIN Entry**: If needed, add "PIN" or "Keypad" to `extra_specs_filter`.
-- **Display**: If needed, add "display" or "screen" to `extra_specs_filter`.
-- **Standalone/Independent**: Set `is_standalone: true` and add "RAM" or "DRAM" to `extra_specs_filter`.
-- **Outdoor**: Set `is_outdoor: true` and search for "IP" in `extra_specs_filter`.
-- **Host-controlled**: Filter for "USB", "RS232", "UART", or "Bluetooth" in the `interface` column.
-- **Communication (Standalone)**: If independent, search for "Ethernet", "WiFi", or "LTE" in the `interface` column.
-- **Temperatures**: Search for the temperature range string (e.g., "-20") in `operate_temperature`.
-- **General Features**: DO NOT put general features like "contactless" in `search_query`. Use `extra_specs_filter` instead. `search_query` is ONLY for model names (e.g., "VP3300") and key features like "PIN".
+Focus on gathering:
+1. **Indoor vs outdoor** — and if outdoor, rough temperature range (e.g., 0C to 40C indoor, -20C to 65C outdoor, -30C to 70C harsh outdoor).
+2. Any weather/durability concerns (rain, dust, vandalism).
 
-**Proactive Filtering**:
-- If you call `product_filtering` and it returns an empty list `[]`, you MUST try again with broader constraints (e.g., remove the `input_power` or `interface` filter).
-- Do not apologize to the user if a tool returns nothing; just broaden the search.
+Be conversational — ask one thing at a time.
+Never discuss pricing, quotes, or product names.
 
-### EXECUTION
-1. If information is missing, ask the user the next relevant question from the interview process.
-2. You can call `product_filtering` with partial info to see what is available.
-3. **MODULAR STRATEGY (CRITICAL)**: 
-   - If no single device ("All-in-One") meets all requirements (e.g., a customer needs a Display and PIN, but our readers don't have them), you MUST perform multiple tool calls.
-   - **Step A**: Search for a primary Reader (e.g., search for contactless support).
-   - **Step B**: Search for a peripheral (e.g., search for "PIN" or "Keypad" to find a standalone PIN pad).
-   - Combine these into a single recommendation.
-4. The tool `product_filtering` returns a list of hardware options with their technical details.
-5.  **Flexible Search**: If `product_filtering` returns nothing, you MUST try again with fewer constraints that is less likely to be a key constrain.   
-6. **Rule of Thumb**: It is better to give the user a 'Close Match' or a 'Modular Bundle' than to give them an empty response.
-7. **NEVER** return a raw 'constraints' JSON or the internal tool parameters to the user. If you absolutely cannot find a product even after broadening the search, explain this in natural language and ask for clarification on the most restrictive constraint.
-8. Once you receive the tool results, pick the best hardware and return a final JSON `RecommendationBundle` containing:
-   - `hardware_items`: A list of hardware objects, each with:
-     - `name`: The specific model name.
-     - `role`: A string explaining the purpose (e.g., "Primary Card Reader", "Standalone PIN Pad", "Display", or "All-in-One Solution").
-     - `technical_specs`: A dictionary of all technical data for that item.
-   - `software`: A list of objects with `name` and optional `datasheet_url`. (Empty list if none)
-   - `highlights`: A list of key feature strings (e.g., "Modular Design", "Ruggedized").
-   - `explanation`: A professional rationale for the choice. If it is a modular bundle, explain how the parts work together.
-   - `installation_docs`: A list of objects with `title` and `url`. (Empty list if none)
+Use the `update_lead_info` tool to capture the user's answers.
+""",
 
-"""
+    "transaction_profile": """
+You are gathering transaction volume information.
 
-TOOLS = [
-    {
-        "type": "function",
-        "function": {
-            "name": "product_filtering",
-            "description": "Query the hardware database using specific technical column mappings.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "constraints": {
-                        "type": "object",
-                        "properties": {
-                            "category": {"type": "string"},
-                            "use_case": {"type": "string"},
-                            "input_power": {"type": "string", "description": "e.g. 'USB', '5V', 'AC'"},
-                            "interface": {"type": "string", "description": "e.g. 'Bluetooth', 'Ethernet', 'Wi-Fi', 'LTE', 'RS232'"},
-                            "operate_temperature": {"type": "string", "description": "e.g. '-20', '70'"},
-                            "extra_specs_filter": {"type": "string", "description": "e.g. 'RAM', 'IP65', 'display', 'Keypad'"},
-                            "is_standalone": {"type": "boolean", "description": "True if the device handles payment independently (has CPU/RAM)."},
-                            "is_outdoor": {"type": "boolean", "description": "True if the device needs weather resistance (IP65+)."},
-                            "search_query": {"type": "string", "description": "Model names or key features like 'PIN'"}
+Focus on:
+1. How many transactions per month they expect.
+2. Average transaction value (if they're willing to share).
+
+This helps determine if they need a high-throughput or enterprise-grade solution.
+Keep it light — "just a rough idea is fine."
+Never discuss pricing, quotes, or product names.
+
+Use the `update_lead_info` tool to capture any information the user provides.
+""",
+
+    "technical_context": """
+You are gathering technical integration details. Ask one or two questions at a time.
+
+Topics to cover naturally:
+1. **Power source** — wall outlet, USB, battery? Any specific voltage (12V, 24V, 5V)?
+2. **Card types** — contact (chip), contactless (tap), magstripe (swipe)?
+3. **PIN entry** — do they need the customer to enter a PIN?
+4. **Standalone vs host-controlled** — does the device run on its own, or connect to a host computer/terminal?
+   - If host-controlled: what interface? (USB, RS232, UART, Bluetooth, Ethernet)
+   - If standalone: what communication? (Ethernet, WiFi, Cellular)
+5. **Display** — do they need a screen for customer interaction?
+6. **Previous products used** — any existing ID TECH devices they're familiar with?
+
+IMPORTANT:
+- Never discuss pricing, quotes, or product names.
+- Do NOT mention specific model numbers.
+- Let the backend handle matching — you just collect information.
+- Use the `update_lead_info` tool to capture the user's answers.
+""",
+
+    "recommendation": """
+The backend has already prepared a product recommendation. Your job is simply to present it to the user in a clear, enthusiastic way.
+
+Rules:
+- Do NOT generate product names or specs yourself — the backend handles that.
+- Use the information provided in the system message to explain the recommendation.
+- Ask if they'd like to download the recommendation as a PDF.
+- Transition to asking for their contact information (name, email) so we can follow up.
+
+Use the `update_lead_info` tool to capture any contact details the user provides.
+""",
+
+    "lead_capture": """
+The user is ready to share their contact information. Be friendly and professional.
+
+Ask for:
+1. Name
+2. Email
+3. Company name
+4. Phone (optional)
+
+Let them know a specialist will follow up with more details.
+Never discuss pricing, quotes, or specific product names.
+
+Use the `update_lead_info` tool to capture the user's answers.
+""",
+
+    "complete": """
+Thank the user for their time. Let them know:
+- A specialist will reach out to them.
+- They can download the recommendation PDF.
+- Offer to book a meeting with a sales engineer if they'd like.
+
+Keep it warm and professional. Your job here is done.
+""",
+}
+
+
+UPDATE_LEAD_INFO_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "update_lead_info",
+        "description": "Capture any qualification or lead information the user has shared in their message. Only fill fields you detected — leave others unset.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "environment": {
+                    "type": "object",
+                    "description": "Environmental context",
+                    "properties": {
+                        "vertical": {
+                            "type": "string",
+                            "description": "Business vertical/industry: parking, transit, vending, retail, EV charging, banking, loyalty, etc."
+                        },
+                        "indoor_outdoor": {
+                            "type": "string",
+                            "enum": ["indoor", "outdoor", "outdoor harsh"],
+                            "description": "Deployment environment"
+                        },
+                        "temperature_range": {
+                            "type": "string",
+                            "description": "Operating temperature range, e.g., '-20C to 65C'"
                         }
                     }
                 },
-                "required": ["constraints"]
+                "transaction_profile": {
+                    "type": "object",
+                    "description": "Transaction volume information",
+                    "properties": {
+                        "monthly_volume": {
+                            "type": "integer",
+                            "description": "Estimated monthly transaction volume"
+                        },
+                        "average_ticket": {
+                            "type": "number",
+                            "description": "Average transaction value in dollars"
+                        }
+                    }
+                },
+                "technical_context": {
+                    "type": "object",
+                    "description": "Technical integration details",
+                    "properties": {
+                        "power_source": {
+                            "type": "string",
+                            "description": "Power source: wall outlet, USB, battery, etc."
+                        },
+                        "voltage": {
+                            "type": "string",
+                            "description": "Specific voltage if mentioned, e.g., '12V', '24V', '5V'"
+                        },
+                        "card_types": {
+                            "type": "array",
+                            "items": {"type": "string", "enum": ["contact", "contactless", "magstripe"]},
+                            "description": "Payment card types needed"
+                        },
+                        "needs_pin": {
+                            "type": "boolean",
+                            "description": "Does the user need PIN entry?"
+                        },
+                        "is_standalone": {
+                            "type": "boolean",
+                            "description": "Is the device standalone (no host computer)?"
+                        },
+                        "host_interface": {
+                            "type": "string",
+                            "description": "Interface if host-controlled: USB, RS232, UART, Bluetooth, Ethernet"
+                        },
+                        "host_os": {
+                            "type": "string",
+                            "description": "Host operating system if applicable"
+                        },
+                        "standalone_comms": {
+                            "type": "string",
+                            "description": "Communication method if standalone: Ethernet, WiFi, Cellular"
+                        },
+                        "needs_display": {
+                            "type": "boolean",
+                            "description": "Does the user need a display/screen?"
+                        },
+                        "previous_products": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Any ID TECH products they've used before"
+                        }
+                    }
+                },
+                "lead": {
+                    "type": "object",
+                    "description": "Contact information for lead capture",
+                    "properties": {
+                        "name": {"type": "string"},
+                        "email": {"type": "string"},
+                        "company": {"type": "string"},
+                        "phone": {"type": "string"}
+                    }
+                }
             }
         }
     }
-]
+}
 
-def build_chat_prompt(message: str, history: List[Dict[str, str]]) -> List[Dict[str, str]]:
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+
+TOOLS = [UPDATE_LEAD_INFO_TOOL]
+
+
+def build_chat_prompt(
+    message: str,
+    history: List[Dict[str, str]],
+    state: str = "greeting",
+    collected_info: Dict[str, Any] = None,
+) -> List[Dict[str, str]]:
+    """Build the message list for the LLM call, including per-state prompt."""
+
+    state_prompt = STATE_PROMPTS.get(state, STATE_PROMPTS["greeting"])
+
+    # Add a summary of what we already know so the LLM doesn't ask again
+    known_summary = ""
+    if collected_info:
+        known_parts = []
+        env = collected_info.get("environment", {})
+        tc = collected_info.get("technical_context", {})
+        tp = collected_info.get("transaction_profile", {})
+        lead = collected_info.get("lead", {})
+
+        if env.get("vertical"):
+            known_parts.append(f"Vertical: {env['vertical']}")
+        if env.get("indoor_outdoor"):
+            known_parts.append(f"Environment: {env['indoor_outdoor']}")
+        if env.get("temperature_range"):
+            known_parts.append(f"Temp: {env['temperature_range']}")
+        if tc.get("card_types"):
+            known_parts.append(f"Cards: {', '.join(tc['card_types'])}")
+        if tc.get("needs_pin"):
+            known_parts.append("PIN: yes")
+        if tc.get("power_source"):
+            known_parts.append(f"Power: {tc['power_source']}")
+        if tc.get("voltage"):
+            known_parts.append(f"Voltage: {tc['voltage']}")
+        if tc.get("is_standalone") is not None:
+            known_parts.append(f"Standalone: {tc['is_standalone']}")
+        if tc.get("host_interface"):
+            known_parts.append(f"Interface: {tc['host_interface']}")
+        if tc.get("standalone_comms"):
+            known_parts.append(f"Comms: {tc['standalone_comms']}")
+        if tc.get("needs_display") is not None:
+            known_parts.append(f"Display: {tc['needs_display']}")
+        if tc.get("previous_products"):
+            known_parts.append(f"Previous: {', '.join(tc['previous_products'])}")
+        if tp.get("monthly_volume"):
+            known_parts.append(f"Volume: {tp['monthly_volume']}/mo")
+        if lead.get("name"):
+            known_parts.append(f"Contact: {lead['name']}")
+
+        if known_parts:
+            known_summary = "\n[Already known about this customer: " + "; ".join(known_parts) + "]\nDo NOT ask for this information again."
+
+    system_content = state_prompt.strip()
+    if known_summary:
+        system_content += "\n" + known_summary
+
+    messages = [{"role": "system", "content": system_content}]
     for msg in history:
         messages.append(msg)
     messages.append({"role": "user", "content": message})
