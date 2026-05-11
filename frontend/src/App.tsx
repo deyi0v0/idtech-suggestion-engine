@@ -1,8 +1,10 @@
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import SampleChat from "./components/SampleChat"
 import AdminLayout from './pages/maintenance/AdminLayout';
 import HardwareManager from "./pages/maintenance/HardwareManager";
 import AddHardware from "./pages/maintenance/AddHardware";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import SoftwareManager from "./pages/maintenance/SoftwareManager";
+import AddSoftware from './pages/maintenance/AddSoftware';
 
 function App() {
   return (
@@ -19,7 +21,10 @@ function App() {
         {/* Maintenance Portal */}
         <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<HardwareManager />} />
+            <Route path="hardware" element={<HardwareManager />} />
             <Route path="hardware/add" element={<AddHardware />} />
+            <Route path="software" element={<SoftwareManager />} />
+            <Route path="software/add" element={<AddSoftware />} />
         </Route>
         {/* <Route path="/admin/hardware" element={<HardwareManager />} />
         <Route path="/admin/software" element={<SoftwareManager />} />
