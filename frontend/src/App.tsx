@@ -1,34 +1,33 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Dashboard from "./pages/maintenance/Dashboard"
 import HardwareManager from "./pages/maintenance/HardwareManager"
 import SoftwareManager from "./pages/maintenance/SoftwareManager"
 import PromptManager from "./pages/maintenance/PromptManager"
 import DocManager from "./pages/maintenance/DocManager"
 import ChatWindow from "./components/ChatWindow"
+import DebugPanel from "./components/DebugPanel"
 import type { Message, Product } from "./types/messages"
-import { sendChatMessage, ChatRequest, ChatResponse } from "./api/client"
-import ForceRecommendationButton from "./components/ForceRecommendationButton"
+import { sendChatMessage, type ChatResponse } from "./api/client"
 
 const WELCOME_MESSAGE: Message = {
   id: "welcome-1",
   role: "bot",
-  text: "What business are you running today, and what kind of payment experience are you trying to offer your customers?",
+  text: "Hi! I'm the IDTECH Helper Agent. How can I help you today?",
 };
 
 const normalizeBotText = (raw: string): string => {
-  const cleanedLines = raw
+  const lines = raw
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line.length > 0)
-    .filter((line) => !/satisf(y|ies)\s+the\s+requirements?\s+for\s+this\s+question/i.test(line))
     .map((line) => {
       let normalized = line.replace(/^\d+\.\s*/, "");
       normalized = normalized.replace(/^"(.*)"$/, "$1");
       return normalized.trim();
     });
 
-  return cleanedLines.join("\n\n");
+  return lines.join("\n\n");
 };
 
 function App() {
@@ -37,6 +36,14 @@ function App() {
   const [disabled, setDisabled] = useState(false);
   const [isLightTheme, setIsLightTheme] = useState(false);
 
+  // State machine tracking — accumulated structured data and current phase
+  const [collectedInfo, setCollectedInfo] = useState<Record<string, unknown>>({});
+  const [nextState, setNextState] = useState<string | undefined>(undefined);
+
+  // Keep a ref to the latest collectedInfo so the onSend closure always has fresh data
+  const collectedInfoRef = useRef(collectedInfo);
+  collectedInfoRef.current = collectedInfo;
+
   useEffect(() => {
     document.body.classList.toggle("light-theme", isLightTheme);
   }, [isLightTheme]);
@@ -44,50 +51,33 @@ function App() {
   const buildHistory = (): { role: "user" | "assistant"; content: string }[] =>
     messages.map((m) => ({ role: m.role === "user" ? "user" : "assistant", content: m.text }));
 
-  const onSend = async (text: string) => {
-    const lastBotMessage = [...messages].reverse().find((m) => m.role === "bot");
-    const lastBotText = (lastBotMessage?.text ?? "").toLowerCase();
-    const userText = text.trim().toLowerCase();
-    const looksLikeNoHostAnswer =
-      userText.includes("no host") || userText === "none" || userText === "n/a";
-    const askingOutdoorOrTemp =
-      lastBotText.includes("outdoor") || lastBotText.includes("temperature") || lastBotText.includes("ip rating");
-    if (looksLikeNoHostAnswer && askingOutdoorOrTemp) {
-      const userMsg: Message = { id: `u-${Date.now()}`, role: "user", text };
-      const botMsg: Message = {
-        id: `b-${Date.now()}-clarify`,
-        role: "bot",
-        text: "Thanks. For this question, I need the deployment environment and temperature range. Will this be indoor or outdoor, and what low/high temperatures should it support?",
-        type: "multipleChoice",
-        choices: [
-          { id: "env-indoor", label: "Indoor (0C to 40C)" },
-          { id: "env-outdoor-mild", label: "Outdoor (-20C to 65C)" },
-          { id: "env-outdoor-harsh", label: "Outdoor (-30C to 70C)" },
-        ],
-      };
-      setMessages((prev) => [...prev, userMsg, botMsg]);
-      return;
-    }
-
+  const onSend = useCallback(async (text: string) => {
     const userMsg: Message = { id: `u-${Date.now()}`, role: "user", text };
     setMessages((prev) => [...prev, userMsg]);
     setIsTyping(true);
     setDisabled(true);
 
     try {
-      const req: ChatRequest = { message: text, history: buildHistory() };
-      const resp = await sendChatMessage(req);
+      // Send current collected_info so the backend's state machine is continuous
+      const req = {
+        message: text,
+        history: buildHistory(),
+        collected_info: collectedInfoRef.current,
+      };
+      const resp: ChatResponse = await sendChatMessage(req);
 
-      const typedResp = resp as ChatResponse;
-      const normalizedBotText = normalizeBotText(typedResp.text);
+      const cleanedText = normalizeBotText(resp.text);
 
+      // Build the bot message
       const botMsg: Message = {
         id: `b-${Date.now()}`,
         role: "bot",
-        text: normalizedBotText,
-        quickReplies: typedResp.quick_replies || undefined,
+        text: cleanedText,
+        quickReplies: resp.quick_replies || undefined,
       };
-      if (typedResp.type === "question" || typedResp.type === "clarification") {
+
+      // If it's a question or clarification, render quick replies as multiple-choice buttons
+      if (resp.type === "question" || resp.type === "clarification") {
         botMsg.type = "multipleChoice";
         botMsg.choices = (botMsg.quickReplies || []).map((label: string, idx: number) => ({
           id: `choice-${Date.now()}-${idx}`,
@@ -95,18 +85,53 @@ function App() {
         }));
       }
 
-      let hw: any = null;
-      if (typedResp.type === "recommendation" && typedResp.recommendation?.hardware_items?.length) {
-        hw = typedResp.recommendation.hardware_items[0];
+      // Merge new_info into collectedInfo (state machine data from LLM tool call)
+      const mergedInfo = { ...collectedInfoRef.current };
+      if (resp.new_info) {
+        // Handle __state_override: if the backend overrides the state, use it directly
+        const override = (resp.new_info as Record<string, unknown>)["__state_override"];
+        if (typeof override === "string") {
+          setNextState(override);
+        }
+
+        // Merge all extracted fields (deep merge for nested objects)
+        for (const [key, value] of Object.entries(resp.new_info)) {
+          if (key === "__state_override") continue;
+          if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+            // Nested object (environment, technical_context, etc.) — merge at the sub-key level
+            mergedInfo[key] = { ...(mergedInfo[key] as Record<string, unknown> || {}), ...value as Record<string, unknown> };
+          } else if (value !== undefined) {
+            mergedInfo[key] = value;
+          }
+        }
       }
 
-      if (hw) {
+      // If the backend returned a next_state, track it
+      if (resp.next_state) {
+        setNextState(resp.next_state);
+      }
+
+      // Update collectedInfo state
+      setCollectedInfo(mergedInfo);
+
+      // Store state info on the message for debugging / future use
+      botMsg.collectedInfo = mergedInfo;
+      botMsg.nextState = resp.next_state ?? nextState;
+
+      // Build product card for recommendation responses
+      if (resp.type === "recommendation" && resp.recommendation?.hardware_items?.length) {
+        const hw = resp.recommendation.hardware_items[0];
         const product: Product = {
-          name: hw.name ?? hw.model_name ?? hw.hardware_name ?? "Product",
-          sku: hw.sku ?? (hw.model && hw.model.sku) ?? "",
-          description: typedResp.recommendation?.explanation ?? hw.role ?? JSON.stringify(hw),
+          name: hw.name ?? "Product",
+          sku: (hw.technical_specs?.model_name as string) ?? "",
+          description: resp.recommendation.explanation ?? hw.role,
         };
         botMsg.product = product;
+      }
+
+      // Handle ui_actions (future: show lead form, offer booking)
+      if (resp.ui_actions && resp.ui_actions.length > 0) {
+        console.log("[ui_actions]", resp.ui_actions);
       }
 
       setMessages((prev) => [...prev, botMsg]);
@@ -117,7 +142,7 @@ function App() {
       setIsTyping(false);
       setDisabled(false);
     }
-  };
+  }, [messages, nextState]);
 
   return (
     <Router>
@@ -134,15 +159,7 @@ function App() {
             </button>
             <h1 className="text-primary text-center">IDTECH Suggestion Engine</h1>
             <ChatWindow messages={messages} onSend={onSend} isTyping={isTyping} disabled={disabled} />
-            {/* <div className="mt-4">
-              <ForceRecommendationButton
-                buildHistory={buildHistory}
-                setMessages={setMessages}
-                setIsTyping={setIsTyping}
-                setDisabled={setDisabled}
-                disabled={disabled}
-              />
-            </div> */}
+      <DebugPanel collectedInfo={collectedInfo} nextState={nextState} messageCount={messages.length} />
           </div>
         } />
 

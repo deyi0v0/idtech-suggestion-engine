@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 
 interface ChatInputProps {
   onSend: (text: string) => void;
@@ -37,6 +37,13 @@ export default function ChatInput({
       submit();
     }
   };
+
+  // Auto-focus when the input becomes enabled (e.g., after AI finishes responding)
+  useEffect(() => {
+    if (!disabled && textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, [disabled]);
 
   const canSend = value.trim().length > 0 && !disabled;
 
