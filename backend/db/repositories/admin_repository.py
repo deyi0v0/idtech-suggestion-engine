@@ -252,7 +252,7 @@ class AdminRepository:
         self.db.commit()
 
     #-----Start of software table----
-    def create_software(self, name: str, extra_fields: Optional[Dict[str, Any]] = None):
+    def create_software_with_extra_fields(self, name: str, extra_fields: Optional[Dict[str, Any]] = None):
         clean = (name or "").strip()
     
         if not clean:
@@ -315,3 +315,26 @@ class AdminRepository:
         self.db.commit()
         self.db.refresh(software)
         return software
+
+    def delete_software_extra_field(self, name: str, field_name: str) -> Software:
+        software = self.db.execute(
+            select(Software).where(Software.name == name)
+        ).scalar_one_or_none()
+    
+        if software is None:
+            raise NotFoundError(f"software '{name}' not found")
+    
+        current = software.extra_fields or {}
+    
+        if field_name not in current:
+            raise NotFoundError(f"extra field '{field_name}' not found for software '{name}'")
+    
+        new_fields = dict(current)
+        del new_fields[field_name]
+    
+        software.extra_fields = new_fields
+    
+        self.db.commit()
+        self.db.refresh(software)
+        return software
+        
