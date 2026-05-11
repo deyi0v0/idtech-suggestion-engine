@@ -21,13 +21,11 @@ export default function ProductModal({ product, onClose }: ProductModalProps) {
   const handleRequestPDF = async () => {
     const bundle: RecommendationBundle = {
       hardware_name: product.name,
-      software_name: "",
       highlights: [],
       explanation: product.description,
       hardware_items: [
         {
           name: product.name,
-          sku: product.sku,
           role: "Recommended",
         },
       ],

@@ -27,6 +27,7 @@ export interface SoftwareRecommendation {
 }
 
 export interface RecommendationBundle {
+  hardware_name: string;
   hardware_items: HardwareRecommendation[];
   software?: SoftwareRecommendation[];
   highlights?: string[];

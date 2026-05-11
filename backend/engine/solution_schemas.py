@@ -11,10 +11,11 @@ class SoftwareRecommendation(BaseModel):
 
 class HardwareRecommendation(BaseModel):
     name: str
-    role: str # e.g., "Primary Card Reader", "Standalone PIN Pad", "Display", or "All-in-One Terminal"
+    role: str  # e.g., "Primary Card Reader", "Standalone PIN Pad", "Display", or "All-in-One Terminal"
     technical_specs: Dict[str, Any] = {}
 
 class RecommendationBundle(BaseModel):
+    hardware_name: str
     hardware_items: List[HardwareRecommendation]
     software: List[SoftwareRecommendation] = []
     highlights: List[str] = []

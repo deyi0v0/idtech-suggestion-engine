@@ -266,7 +266,7 @@ class ChatService:
 
         return ChatResponse(
             type="question",
-            text=llm_result.get("reply", ""),
+            text=llm_result.get("reply", "") or "",
             quick_replies=self._get_quick_replies(next_state),
             ui_actions=ui_actions,
             new_info=new_info,

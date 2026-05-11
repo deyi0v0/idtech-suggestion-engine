@@ -24,7 +24,6 @@ export default function MessageBubble({
         hardware_items: [
           {
             name: msg.product.name,
-            sku: msg.product.sku,
             role: "Recommended",
           },
         ],
