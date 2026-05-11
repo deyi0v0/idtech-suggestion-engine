@@ -11,6 +11,7 @@ from ..engine.solution_schemas import (
     RecommendationBundle,
     SoftwareRecommendation,
 )
+from ..engine.lead_service import LeadService
 from ..engine.state_machine import (
     CollectedInfo,
     ConversationState,
@@ -200,6 +201,9 @@ class ChatService:
 
         # exit out if complete and offer a booking with a sales agent from ID TECH
         if state == ConversationState.COMPLETE:
+            # Auto-save lead if we have their info
+            if collected.lead.name and collected.lead.email:
+                LeadService.save_lead_from_collected(collected, status="completed")
             return ChatResponse(
                 type="clarification",
                 text="Thank you for your time! A specialist will follow up with you shortly. Would you like to book a meeting with a sales engineer?",

@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from .routers import chat, pdf
+from .routers import lead as lead_router
 from .routers.maintenance import hardware, software, prompts, docs
 
 app = FastAPI(title="ID TECH Suggestion Engine")
@@ -23,6 +24,7 @@ app.add_middleware(
 # Customer Routes
 app.include_router(chat.router, prefix="/api", tags=["Chat"])
 app.include_router(pdf.router, prefix="/api/pdf", tags=["PDF"])
+app.include_router(lead_router.router, prefix="/api/lead", tags=["Lead"])
 
 # Maintenance Routes
 app.include_router(hardware.router, prefix="/api/maintenance/hardware", tags=["Maintenance Hardware"])
