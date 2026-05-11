@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import uuid
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -16,6 +17,7 @@ from ..engine.state_machine import (
     CollectedInfo,
     ConversationState,
     determine_next_state,
+    state_order,
 )
 from ..llm.client import process_turn
 from ..llm.contracts import ChatResponse
@@ -229,10 +231,19 @@ class ChatService:
 
         # re-evaluate the current state based on what we just gathered
         next_state = determine_next_state(collected)
+
+        # RECOMMENDATION has no required fields ([]), so determine_next_state always
+        # skips past it (all([]) is always True). Intercept: if we're about to jump
+        # from before RECOMMENDATION to after it (e.g. TECHNICAL_CONTEXT -> LEAD_CAPTURE),
+        # stop at RECOMMENDATION first so product matching runs.
+        if (state_order(state) < state_order(ConversationState.RECOMMENDATION) and
+            state_order(next_state) > state_order(ConversationState.RECOMMENDATION)):
+            next_state = ConversationState.RECOMMENDATION
+
         if next_state != state:
             new_info["__state_override"] = next_state.value
 
-        # if entering RECOMMENDATION state, run produtc matching
+        # if entering RECOMMENDATION state, run product matching
         if next_state == ConversationState.RECOMMENDATION and state != ConversationState.RECOMMENDATION:
             rows, constraints = self._run_product_matching(collected)
             if rows:
@@ -267,7 +278,11 @@ class ChatService:
         return ChatResponse(
             type="question",
             text=llm_result.get("reply", "") or "",
-            quick_replies=self._get_quick_replies(next_state),
+            quick_replies=self._resolve_quick_replies(
+                next_state,
+                llm_result.get("reply", "") or "",
+                llm_result.get("suggested_choices", []),
+            ),
             ui_actions=ui_actions,
             new_info=new_info,
             next_state=next_state,
@@ -306,6 +321,68 @@ class ChatService:
             ],
         }
         return replies_by_state.get(state)
+
+    @staticmethod
+    def _normalize_choices(choices: List[Any]) -> List[str]:
+        cleaned: List[str] = []
+        lowered_seen = set()
+
+        for choice in choices:
+            if not isinstance(choice, str):
+                continue
+
+            value = re.sub(r"\s+", " ", choice).strip()
+            if not value:
+                continue
+
+            lowered = value.lower()
+            if lowered in lowered_seen:
+                continue
+
+            lowered_seen.add(lowered)
+            cleaned.append(value)
+
+            if len(cleaned) == 4:
+                break
+
+        return cleaned
+
+    @staticmethod
+    def _choices_are_misaligned(reply_text: str, choices: List[str]) -> bool:
+        """Reject generic yes/no options when the question is not binary."""
+        if len(choices) != 2:
+            return False
+
+        lowered = {c.lower().strip(" .!?") for c in choices}
+        is_yes_no = lowered in ({"yes", "no"}, {"yes", "nope"}, {"yes", "no thanks"})
+        if not is_yes_no:
+            return False
+
+        text = (reply_text or "").lower()
+        non_binary_markers = [
+            "which",
+            "what",
+            "tell me",
+            "share",
+            "temperature",
+            "range",
+            "indoor",
+            "outdoor",
+            " or ",
+        ]
+        return any(marker in text for marker in non_binary_markers)
+
+    @staticmethod
+    def _resolve_quick_replies(
+        state: ConversationState,
+        reply_text: str,
+        suggested_choices: Optional[List[Any]],
+    ) -> Optional[List[str]]:
+        """Prefer LLM tool suggestions when they are well-formed and aligned."""
+        normalized = ChatService._normalize_choices(suggested_choices or [])
+        if normalized and not ChatService._choices_are_misaligned(reply_text, normalized):
+            return normalized
+        return ChatService._get_quick_replies(state)
 
 
 _service_instance = ChatService()

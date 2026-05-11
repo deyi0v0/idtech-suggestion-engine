@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import logging
 import os
@@ -16,8 +18,8 @@ class LLMClient:
     """
     Thin wrapper around OpenAI. Responsibilities:
     - Call the LLM with per-state prompt + tools
-    - Parse tool call arguments (update_lead_info)
-    - Return the extracted data + assistant text reply
+    - Parse tool call arguments (update_lead_info, present_choices)
+    - Return the extracted data + assistant text reply + suggested choices
     - DOES NOT contain product logic, state machine, or recommendation building
     """
 
@@ -27,7 +29,7 @@ class LLMClient:
             api_key = "test-key"
         self.client = OpenAI(api_key=api_key)
         self.model = "gpt-4o-mini"
-        self.max_attempts = 2
+        self.max_attempts = 3
 
     def process_turn(
         self,
@@ -39,70 +41,122 @@ class LLMClient:
         """
         Send a turn to the LLM and return:
         {
-            "reply": str,            # The assistant's text response
-            "extracted_info": dict,  # Data extracted via update_lead_info tool call
-            "tool_was_called": bool, # Whether the tool was invoked
+            "reply": str,                # The assistant's text response
+            "extracted_info": dict,      # Data extracted via update_lead_info tool call
+            "suggested_choices": list,   # Choices from present_choices tool call
+            "tool_was_called": bool,     # Whether any tool was invoked
         }
         """
-        messages = build_chat_prompt(message, history, state, collected_info)
+        messages: List[Dict[str, Any]] = build_chat_prompt(message, history, state, collected_info)
+
+        extracted_info: Dict[str, Any] = {}
+        suggested_choices: List[str] = []
+        tool_was_called = False
+        must_generate_text = False  # becomes True once tools have been processed
 
         for attempt in range(1, self.max_attempts + 1):
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                tools=TOOLS,
-                tool_choice="auto",
-            )
+            # After tools have been processed once, force the LLM to produce
+            # conversational text — no further tool calls allowed this turn.
+            effective_tool_choice = "none" if must_generate_text else "auto"
+
+            try:
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    tools=TOOLS,
+                    tool_choice=effective_tool_choice,
+                )
+            except Exception as exc:
+                logger.error("OpenAI API call failed (attempt %d/%d): %s", attempt, self.max_attempts, exc)
+                if attempt < self.max_attempts:
+                    continue
+                return {
+                    "reply": "Sorry, I'm having trouble connecting right now. Could you try again?",
+                    "extracted_info": extracted_info,
+                    "suggested_choices": suggested_choices,
+                    "tool_was_called": tool_was_called,
+                }
+
             response_message = response.choices[0].message
-            messages.append(response_message)
+            reply_text = response_message.content or ""
+
+            # Append the assistant message (with tool_calls if any) to the conversation
+            msg_dict: Dict[str, Any] = {
+                "role": response_message.role,
+                "content": reply_text,
+            }
+            if response_message.tool_calls:
+                msg_dict["tool_calls"] = [tc.model_dump() for tc in response_message.tool_calls]
+            messages.append(msg_dict)
 
             tool_calls = response_message.tool_calls or []
 
+            # ── No tool calls → pure text response, we're done ──
             if not tool_calls:
-                # No tool called — just return the text reply
                 return {
-                    "reply": response_message.content or "",
-                    "extracted_info": {},
-                    "tool_was_called": False,
+                    "reply": reply_text,
+                    "extracted_info": extracted_info,
+                    "suggested_choices": suggested_choices,
+                    "tool_was_called": tool_was_called,
                 }
 
+            # ── Process tool calls ──
+            any_unknown = False
             for tool_call in tool_calls:
                 fname = tool_call.function.name
-                if fname == "update_lead_info":
-                    args = self._try_parse_json(tool_call.function.arguments) or {}
-                    return {
-                        "reply": response_message.content or "",
-                        "extracted_info": args,
-                        "tool_was_called": True,
-                    }
+                try:
+                    args = json.loads(tool_call.function.arguments) if isinstance(tool_call.function.arguments, str) else {}
+                except json.JSONDecodeError:
+                    args = {}
 
-            # Unknown tool — force retry
-            messages.append({
-                "role": "system",
-                "content": "Only use the `update_lead_info` tool to capture information.",
-            })
+                if fname == "update_lead_info":
+                    extracted_info.update(args)
+                    tool_was_called = True
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "content": "Information captured successfully.",
+                    })
+                elif fname == "present_choices":
+                    choices = args.get("choices", [])
+                    if isinstance(choices, list):
+                        suggested_choices.extend(choices)
+                    tool_was_called = True
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "content": "Choices noted.",
+                    })
+                else:
+                    any_unknown = True
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "content": "Unknown tool. Only use the available tools.",
+                    })
+
+            # Tools processed — on the next iteration, force the LLM to generate
+            # conversational text rather than calling more tools.
+            must_generate_text = True
+
+            if any_unknown:
+                # Add an extra system hint and let the loop retry
+                messages.append({
+                    "role": "system",
+                    "content": "Only use the `update_lead_info` and `present_choices` tools.",
+                })
+                # The next iteration will still use effective_tool_choice="auto"
+                # since must_generate_text was just set, but the unknown tool
+                # flow needs tools available for the correction.
+                must_generate_text = False
 
         # Fallback after max attempts
         return {
             "reply": "Could you tell me a bit more about your setup?",
-            "extracted_info": {},
-            "tool_was_called": False,
+            "extracted_info": extracted_info,
+            "suggested_choices": suggested_choices,
+            "tool_was_called": tool_was_called,
         }
-
-    @staticmethod
-    def _try_parse_json(value: Any) -> Optional[Dict[str, Any]]:
-        if not isinstance(value, str):
-            return None
-        stripped = value.strip()
-        if stripped.startswith("```json"):
-            stripped = stripped[len("```json"):].strip()
-        if stripped.endswith("```"):
-            stripped = stripped[:-3].strip()
-        try:
-            obj = json.loads(stripped)
-            return obj if isinstance(obj, dict) else None
-        except Exception:
-            return None
 
 
 _client_instance = LLMClient()

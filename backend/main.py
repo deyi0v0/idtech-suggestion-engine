@@ -1,14 +1,22 @@
 import os
+import sys
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
+# Ensure the project root is on sys.path so absolute imports resolve,
+# regardless of whether we run `uvicorn main:app` (from backend/)
+# or `uvicorn backend.main:app` (from project root) or `python -m uvicorn ...`
+_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
+
 # Load environment variables before importing routers
 load_dotenv()
 
-from .routers import chat, pdf
-from .routers import lead as lead_router
-from .routers.maintenance import hardware, software, prompts, docs
+from backend.routers import chat, pdf
+from backend.routers import lead as lead_router
+from backend.routers.maintenance import hardware, software, prompts, docs
 
 app = FastAPI(title="ID TECH Suggestion Engine")
 
