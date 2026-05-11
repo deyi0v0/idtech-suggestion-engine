@@ -1,26 +1,74 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Dashboard from "./pages/maintenance/Dashboard"
 import HardwareManager from "./pages/maintenance/HardwareManager"
 import SoftwareManager from "./pages/maintenance/SoftwareManager"
 import PromptManager from "./pages/maintenance/PromptManager"
 import DocManager from "./pages/maintenance/DocManager"
 import ChatWindow from "./components/ChatWindow"
-import ProductModal from "./components/ProductModal"
 import type { Message, Product } from "./types/messages"
-import { sendChatMessage, forceChatMessage, ChatRequest } from "./api/client"
+import { sendChatMessage, ChatRequest, ChatResponse } from "./api/client"
 import ForceRecommendationButton from "./components/ForceRecommendationButton"
 
+const WELCOME_MESSAGE: Message = {
+  id: "welcome-1",
+  role: "bot",
+  text: "What business are you running today, and what kind of payment experience are you trying to offer your customers?",
+};
+
+const normalizeBotText = (raw: string): string => {
+  const cleanedLines = raw
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .filter((line) => !/satisf(y|ies)\s+the\s+requirements?\s+for\s+this\s+question/i.test(line))
+    .map((line) => {
+      let normalized = line.replace(/^\d+\.\s*/, "");
+      normalized = normalized.replace(/^"(.*)"$/, "$1");
+      return normalized.trim();
+    });
+
+  return cleanedLines.join("\n\n");
+};
+
 function App() {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
   const [isTyping, setIsTyping] = useState(false);
   const [disabled, setDisabled] = useState(false);
-  const [productModal, setProductModal] = useState<Product | null>(null);
+  const [isLightTheme, setIsLightTheme] = useState(false);
+
+  useEffect(() => {
+    document.body.classList.toggle("light-theme", isLightTheme);
+  }, [isLightTheme]);
 
   const buildHistory = (): { role: "user" | "assistant"; content: string }[] =>
     messages.map((m) => ({ role: m.role === "user" ? "user" : "assistant", content: m.text }));
 
   const onSend = async (text: string) => {
+    const lastBotMessage = [...messages].reverse().find((m) => m.role === "bot");
+    const lastBotText = (lastBotMessage?.text ?? "").toLowerCase();
+    const userText = text.trim().toLowerCase();
+    const looksLikeNoHostAnswer =
+      userText.includes("no host") || userText === "none" || userText === "n/a";
+    const askingOutdoorOrTemp =
+      lastBotText.includes("outdoor") || lastBotText.includes("temperature") || lastBotText.includes("ip rating");
+    if (looksLikeNoHostAnswer && askingOutdoorOrTemp) {
+      const userMsg: Message = { id: `u-${Date.now()}`, role: "user", text };
+      const botMsg: Message = {
+        id: `b-${Date.now()}-clarify`,
+        role: "bot",
+        text: "Thanks. For this question, I need the deployment environment and temperature range. Will this be indoor or outdoor, and what low/high temperatures should it support?",
+        type: "multipleChoice",
+        choices: [
+          { id: "env-indoor", label: "Indoor (0C to 40C)" },
+          { id: "env-outdoor-mild", label: "Outdoor (-20C to 65C)" },
+          { id: "env-outdoor-harsh", label: "Outdoor (-30C to 70C)" },
+        ],
+      };
+      setMessages((prev) => [...prev, userMsg, botMsg]);
+      return;
+    }
+
     const userMsg: Message = { id: `u-${Date.now()}`, role: "user", text };
     setMessages((prev) => [...prev, userMsg]);
     setIsTyping(true);
@@ -30,38 +78,38 @@ function App() {
       const req: ChatRequest = { message: text, history: buildHistory() };
       const resp = await sendChatMessage(req);
 
-      // Map backend response to a bot message
-      const botText = (resp && typeof resp === "object")
-        ? (resp.explanation as string) ?? (resp.text as string) ?? JSON.stringify(resp)
-        : String(resp);
+      const typedResp = resp as ChatResponse;
+      const normalizedBotText = normalizeBotText(typedResp.text);
 
       const botMsg: Message = {
         id: `b-${Date.now()}`,
         role: "bot",
-        text: botText,
-        quickReplies: (resp && (resp as any).quick_replies) || undefined,
+        text: normalizedBotText,
+        quickReplies: typedResp.quick_replies || undefined,
       };
+      if (typedResp.type === "question" || typedResp.type === "clarification") {
+        botMsg.type = "multipleChoice";
+        botMsg.choices = (botMsg.quickReplies || []).map((label: string, idx: number) => ({
+          id: `choice-${Date.now()}-${idx}`,
+          label,
+        }));
+      }
 
-      setMessages((prev) => [...prev, botMsg]);
-
-      // Open product modal only when response explicitly indicates a recommendation.
-      // Backend sets `show_recommendation_modal` when a RecommendationBundle/hardware_name is present.
       let hw: any = null;
-      if (resp && (resp as any).show_recommendation_modal) {
-        hw = (resp as any).hardware_items?.[0] || (resp as any).hardware?.[0] || (resp as any).hardware || null;
-      } else if (resp && typeof (resp as any).hardware_name === "string" && (resp as any).hardware_name.trim() !== "") {
-        hw = { name: (resp as any).hardware_name.trim(), role: "Recommended", description: (resp as any).explanation ?? undefined };
+      if (typedResp.type === "recommendation" && typedResp.recommendation?.hardware_items?.length) {
+        hw = typedResp.recommendation.hardware_items[0];
       }
 
       if (hw) {
         const product: Product = {
           name: hw.name ?? hw.model_name ?? hw.hardware_name ?? "Product",
           sku: hw.sku ?? (hw.model && hw.model.sku) ?? "",
-          description: (resp && (resp as any).explanation) ?? hw.role ?? JSON.stringify(hw),
+          description: typedResp.recommendation?.explanation ?? hw.role ?? JSON.stringify(hw),
         };
-        setProductModal(product);
+        botMsg.product = product;
       }
 
+      setMessages((prev) => [...prev, botMsg]);
     } catch (err) {
       const errMsg: Message = { id: `e-${Date.now()}`, role: "bot", text: `Error: ${String(err)}` };
       setMessages((prev) => [...prev, errMsg]);
@@ -71,37 +119,33 @@ function App() {
     }
   };
 
-  const onShowProduct = (p: Product) => setProductModal(p);
-
-  const sampleRecommendationPrompt =
-    "Please provide a hardware product recommendation (RecommendationBundle) for a payment terminal in a retail store.";
-  const forceRecommendationPrompt =
-    "Recommendation request: Please produce a RecommendationBundle JSON for the following scenario. Business: retail convenience store. Power: plugged into wall outlet. Card types: contact, contactless, magstripe. PIN entry: yes. Device: stand-alone unit. Host: none. Communication: Ethernet. Environment: indoor. Operating temps: 0-40C. Display: yes. Previous products: Ingenico and IDTECH. Return only valid JSON matching the RecommendationBundle schema with fields hardware_items, hardware_name, and explanation. Do not include extra text.";
-
   return (
     <Router>
       <Routes>
-        {/* Customer Suggestion Engine */}
         <Route path="/" element={
           <div className="flex flex-col items-center">
-            <h1 className="text-white text-center">IDTECH Suggestion Engine</h1>
-              <ChatWindow messages={messages} onSend={onSend} isTyping={isTyping} disabled={disabled} onShowProduct={onShowProduct} />
-              <div className="mt-4">
-                {/* Test Recommendation removed — use ForceRecommendationButton instead */}
-                <ForceRecommendationButton
-                  buildHistory={buildHistory}
-                  setMessages={setMessages}
-                  setIsTyping={setIsTyping}
-                  setDisabled={setDisabled}
-                  setProductModal={setProductModal}
-                  disabled={disabled}
-                />
-              </div>
-            {productModal && <ProductModal product={productModal} onClose={() => setProductModal(null)} />}
+            <button
+              type="button"
+              onClick={() => setIsLightTheme((prev) => !prev)}
+              className="fixed left-4 top-4 z-50 rounded-full border px-3 py-1 text-xs text-primary chat-bg"
+              style={{ borderColor: "var(--border)" }}
+            >
+              {isLightTheme ? "Dark Mode" : "Light Mode"}
+            </button>
+            <h1 className="text-primary text-center">IDTECH Suggestion Engine</h1>
+            <ChatWindow messages={messages} onSend={onSend} isTyping={isTyping} disabled={disabled} />
+            {/* <div className="mt-4">
+              <ForceRecommendationButton
+                buildHistory={buildHistory}
+                setMessages={setMessages}
+                setIsTyping={setIsTyping}
+                setDisabled={setDisabled}
+                disabled={disabled}
+              />
+            </div> */}
           </div>
         } />
 
-        {/* Maintenance Portal */}
         <Route path="/admin" element={<Dashboard />} />
         <Route path="/admin/hardware" element={<HardwareManager />} />
         <Route path="/admin/software" element={<SoftwareManager />} />

@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import type { Product } from "../types/messages";
-import { downloadPDF, PDFRequest } from "../api/client";
+import { downloadRecommendationPDF, RecommendationBundle } from "../api/client";
 import GenericButton from "./GenericButton";
 
 interface ProductModalProps {
@@ -19,17 +19,24 @@ export default function ProductModal({ product, onClose }: ProductModalProps) {
 
 
   const handleRequestPDF = async () => {
-    const req: PDFRequest = {
+    const bundle: RecommendationBundle = {
       hardware_name: product.name,
       software_name: "",
       highlights: [],
       explanation: product.description,
-    }
-    const blob = await downloadPDF(req);
+      hardware_items: [
+        {
+          name: product.name,
+          sku: product.sku,
+          role: "Recommended",
+        },
+      ],
+    };
+    const blob = await downloadRecommendationPDF(bundle);
     const url = URL.createObjectURL(blob);
     window.open(url, "_blank");
     window.addEventListener("unload", () => URL.revokeObjectURL(url), { once: true });
-  }
+  };
 
   return (
     <div
@@ -48,14 +55,12 @@ export default function ProductModal({ product, onClose }: ProductModalProps) {
           <p className="text-secondary mt-1 text-sm">{product.description}</p>
         </div>
 
-        {/* TODO: add another button here for downloading the PDF! */}
-
         <div className="flex flex-col items-center">
           <GenericButton
             className="btn-accent text-primary min-w-xl"
             onClick={handleRequestPDF}
           >
-            View More Details
+            Download Recommendation PDF
           </GenericButton>
           <button
             onClick={onClose}

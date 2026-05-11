@@ -26,6 +26,31 @@ if (-not $NoDb) {
         finally {
             Pop-Location
         }
+
+        Write-Host "Waiting for Postgres on localhost:5433..."
+        $ready = $false
+        for ($i = 0; $i -lt 30; $i++) {
+            try {
+                $tcp = New-Object System.Net.Sockets.TcpClient
+                $iar = $tcp.BeginConnect("localhost", 5433, $null, $null)
+                $connected = $iar.AsyncWaitHandle.WaitOne(1000, $false)
+                if ($connected -and $tcp.Connected) {
+                    $tcp.EndConnect($iar)
+                    $ready = $true
+                    $tcp.Close()
+                    break
+                }
+                $tcp.Close()
+            } catch {
+                # Keep waiting
+            }
+            Start-Sleep -Seconds 1
+        }
+
+        if (-not $ready) {
+            throw "Postgres did not become ready on localhost:5433 within 30 seconds."
+        }
+        Write-Host "Postgres is reachable."
     }
     else {
         Write-Warning "Docker is not available. Skipping DB startup. Use -NoDb to hide this warning."

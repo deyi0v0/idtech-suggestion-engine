@@ -1,24 +1,54 @@
-import type { Message, Product } from "../types/messages";
+import { useState } from "react";
+import type { Message } from "../types/messages";
 import GenericButton from "./GenericButton";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { downloadRecommendationPDF, RecommendationBundle } from "../api/client";
 
 export default function MessageBubble({
   msg,
   onQuickReply,
-  onShowProduct,
 }: {
   msg: Message;
   onQuickReply: (label: string) => void;
-  onShowProduct?: (product: Product) => void;
 }) {
   const isBot = msg.role === "bot";
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownloadPDF = async () => {
+    if (!msg.product) return;
+    setIsDownloading(true);
+    try {
+      const bundle: RecommendationBundle = {
+        hardware_name: msg.product.name,
+        hardware_items: [
+          {
+            name: msg.product.name,
+            sku: msg.product.sku,
+            role: "Recommended",
+          },
+        ],
+        explanation: msg.product.description,
+        highlights: [],
+      };
+      const blob = await downloadRecommendationPDF(bundle);
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+      window.addEventListener("unload", () => URL.revokeObjectURL(url), { once: true });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   return (
     <div className={`flex flex-col gap-2 ${isBot ? "items-start" : "items-end"}`}>
       {isBot ? (
         <div className="w-full">
-          <p className="w-full px-3 py-2 text-sm leading-relaxed text-primary">
-            {msg.text}
-          </p>
+          <div className="w-full px-3 py-2 text-sm leading-relaxed text-primary prose prose-sm max-w-none">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {msg.text}
+            </ReactMarkdown>
+          </div>
         </div>
       ) : (
         <div className="self-end max-w-[75%] inline-block">
@@ -42,10 +72,18 @@ export default function MessageBubble({
         </div>
       )}
 
-      {isBot && msg.product && onShowProduct && (
-        <GenericButton onClick={() => onShowProduct(msg.product!)}>
-          View Recommended Products
-        </GenericButton>
+      {isBot && msg.product && (
+        <div className="w-full rounded-xl border border-gray-200 bg-white/80 p-4">
+          <p className="text-xs uppercase tracking-wide text-secondary">Recommended Hardware</p>
+          <p className="mt-1 text-base font-semibold text-primary">{msg.product.name}</p>
+          {msg.product.sku && <p className="mt-1 text-xs text-secondary">SKU: {msg.product.sku}</p>}
+          <p className="mt-2 text-sm text-secondary">{msg.product.description}</p>
+          <div className="mt-3">
+            <GenericButton onClick={handleDownloadPDF} disabled={isDownloading} className="btn-accent text-primary">
+              {isDownloading ? "Generating PDF..." : "Download Recommendation PDF"}
+            </GenericButton>
+          </div>
+        </div>
       )}
     </div>
   );
