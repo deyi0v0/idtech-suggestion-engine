@@ -7,6 +7,7 @@ CREATE TABLE hardware (
       ik_rating VARCHAR(50),
       interface VARCHAR(255),
       extra_specs JSONB,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
       CONSTRAINT unique_model_name UNIQUE (model_name)
 );
 
@@ -28,6 +29,7 @@ CREATE TABLE use_cases (
 CREATE TABLE software (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
+    extra_fields JSONB,
     CONSTRAINT unique_software_name UNIQUE (name)
 );
 
