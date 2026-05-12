@@ -2,14 +2,14 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from db.session import get_db
-from db.repositories.admin_repository import (
+from ...db.session import get_db
+from ...db.repositories.admin_repository import (
     AdminRepository,
     DuplicateError,
     NotFoundError,
     UnknownReferenceError,
 )
-from db.models.hardware import Hardware
+from ...db.models.hardware import Hardware
 from .schemas import (
     HardwareCreate,
     HardwareUpdate,
@@ -17,7 +17,7 @@ from .schemas import (
     HardwareSummary,
 )
 
-router = APIRouter(prefix="/maintenance/hardware", tags=["maintenance:hardware"])
+router = APIRouter(tags=["maintenance:hardware"])
 
 
 def _to_out(hw: Hardware) -> HardwareOut:

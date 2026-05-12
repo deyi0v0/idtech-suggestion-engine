@@ -2,8 +2,8 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from db.session import get_db
-from db.repositories.admin_repository import (
+from ...db.session import get_db
+from ...db.repositories.admin_repository import (
     AdminRepository,
     DuplicateError,
     NotFoundError,

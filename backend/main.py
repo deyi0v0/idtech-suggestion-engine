@@ -26,7 +26,7 @@ app.include_router(pdf.router, prefix="/api/pdf", tags=["PDF"])
 
 # Maintenance Routes
 app.include_router(hardware.router, prefix="/api/maintenance/hardware", tags=["Maintenance Hardware"])
-app.include_router(software.router, prefix="/api/maintenance/software", tags=["Maintenance Software"])
+app.include_router(software.router, prefix="/api", tags=["Maintenance Software"]) # router in software.py contains "maintenance" prefix
 app.include_router(prompts.router, prefix="/api/maintenance/prompts", tags=["Maintenance Prompts"])
 app.include_router(docs.router, prefix="/api/maintenance/docs", tags=["Maintenance Docs"])
 
