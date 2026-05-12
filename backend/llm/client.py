@@ -10,6 +10,20 @@ from openai import OpenAI
 
 from .prompts import TOOLS, build_chat_prompt
 
+# Lazy import to avoid circular dependency at module level
+_slot_planner = None
+
+def _get_slot_planner():
+    global _slot_planner
+    if _slot_planner is None:
+        from ..engine.slot_planner import validate_choices_for_slot, get_slot_choice_vocab
+        _slot_planner = type("_", (), {
+            "validate_choices_for_slot": staticmethod(validate_choices_for_slot),
+            "get_slot_choice_vocab": staticmethod(get_slot_choice_vocab),
+        })
+    return _slot_planner
+
+
 load_dotenv()
 logger = logging.getLogger(__name__)
 
@@ -31,12 +45,24 @@ class LLMClient:
         self.model = "gpt-4o-mini"
         self.max_attempts = 3
 
+    @staticmethod
+    def _deep_merge_dict(base: Dict[str, Any], incoming: Dict[str, Any]) -> Dict[str, Any]:
+        """Deep-merge nested tool payloads so multiple calls in one turn don't clobber fields."""
+        for key, value in incoming.items():
+            if isinstance(value, dict) and isinstance(base.get(key), dict):
+                LLMClient._deep_merge_dict(base[key], value)
+            else:
+                base[key] = value
+        return base
+
     def process_turn(
         self,
         message: str,
         history: List[Dict[str, str]],
         state: str = "greeting",
         collected_info: Optional[Dict[str, Any]] = None,
+        planned_slot_id: Optional[str] = None,
+        slot_prompt_hint: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Send a turn to the LLM and return:
@@ -45,13 +71,21 @@ class LLMClient:
             "extracted_info": dict,      # Data extracted via update_lead_info tool call
             "suggested_choices": list,   # Choices from present_choices tool call
             "tool_was_called": bool,     # Whether any tool was invoked
+            "accepted_slot": str | None, # Slot from present_choices if validated
+            "choice_validation": str,    # "valid" | "rejected_mismatch" | "rejected_vocab" | "fallback"
         }
         """
-        messages: List[Dict[str, Any]] = build_chat_prompt(message, history, state, collected_info)
+        messages: List[Dict[str, Any]] = build_chat_prompt(
+            message, history, state, collected_info,
+            planned_slot_id=planned_slot_id,
+            slot_prompt_hint=slot_prompt_hint,
+        )
 
         extracted_info: Dict[str, Any] = {}
         suggested_choices: List[str] = []
         tool_was_called = False
+        accepted_slot: Optional[str] = None
+        choice_validation: str = "none"
         must_generate_text = False  # becomes True once tools have been processed
 
         for attempt in range(1, self.max_attempts + 1):
@@ -75,6 +109,8 @@ class LLMClient:
                     "extracted_info": extracted_info,
                     "suggested_choices": suggested_choices,
                     "tool_was_called": tool_was_called,
+                    "accepted_slot": accepted_slot,
+                    "choice_validation": choice_validation,
                 }
 
             response_message = response.choices[0].message
@@ -98,6 +134,8 @@ class LLMClient:
                     "extracted_info": extracted_info,
                     "suggested_choices": suggested_choices,
                     "tool_was_called": tool_was_called,
+                    "accepted_slot": accepted_slot,
+                    "choice_validation": choice_validation,
                 }
 
             # ── Process tool calls ──
@@ -110,7 +148,8 @@ class LLMClient:
                     args = {}
 
                 if fname == "update_lead_info":
-                    extracted_info.update(args)
+                    if isinstance(args, dict):
+                        self._deep_merge_dict(extracted_info, args)
                     tool_was_called = True
                     messages.append({
                         "role": "tool",
@@ -118,15 +157,45 @@ class LLMClient:
                         "content": "Information captured successfully.",
                     })
                 elif fname == "present_choices":
+                    returned_slot = args.get("slot", "")
                     choices = args.get("choices", [])
                     if isinstance(choices, list):
-                        suggested_choices.extend(choices)
+                        # ── Backend validation of slot/choices alignment ──
+                        if planned_slot_id and returned_slot != planned_slot_id:
+                            # Slot mismatch — reject, use fallback
+                            choice_validation = "rejected_mismatch"
+                            logger.warning(
+                                "present_choices slot mismatch: expected=%s got=%s",
+                                planned_slot_id, returned_slot,
+                            )
+                            messages.append({
+                                "role": "tool",
+                                "tool_call_id": tool_call.id,
+                                "content": f"Rejected: choices must be for slot '{planned_slot_id}', not '{returned_slot}'.",
+                            })
+                        else:
+                            sp = _get_slot_planner()
+                            if sp.validate_choices_for_slot(planned_slot_id or returned_slot, choices):
+                                choice_validation = "valid"
+                                accepted_slot = returned_slot or planned_slot_id
+                                suggested_choices.extend(choices)
+                                messages.append({
+                                    "role": "tool",
+                                    "tool_call_id": tool_call.id,
+                                    "content": "Choices accepted.",
+                                })
+                            else:
+                                choice_validation = "rejected_vocab"
+                                logger.warning(
+                                    "present_choices vocabulary mismatch for slot=%s",
+                                    planned_slot_id or returned_slot,
+                                )
+                                messages.append({
+                                    "role": "tool",
+                                    "tool_call_id": tool_call.id,
+                                    "content": "Rejected: choices do not match the expected vocabulary for this slot.",
+                                })
                     tool_was_called = True
-                    messages.append({
-                        "role": "tool",
-                        "tool_call_id": tool_call.id,
-                        "content": "Choices noted.",
-                    })
                 else:
                     any_unknown = True
                     messages.append({
@@ -134,6 +203,18 @@ class LLMClient:
                         "tool_call_id": tool_call.id,
                         "content": "Unknown tool. Only use the available tools.",
                     })
+
+            # If the model already returned conversational text alongside tool calls,
+            # return immediately so question text and choices stay in the same turn.
+            if reply_text.strip() and not any_unknown:
+                return {
+                    "reply": reply_text,
+                    "extracted_info": extracted_info,
+                    "suggested_choices": suggested_choices,
+                    "tool_was_called": tool_was_called,
+                    "accepted_slot": accepted_slot,
+                    "choice_validation": choice_validation,
+                }
 
             # Tools processed — on the next iteration, force the LLM to generate
             # conversational text rather than calling more tools.
@@ -156,6 +237,8 @@ class LLMClient:
             "extracted_info": extracted_info,
             "suggested_choices": suggested_choices,
             "tool_was_called": tool_was_called,
+            "accepted_slot": accepted_slot,
+            "choice_validation": choice_validation,
         }
 
 
@@ -167,5 +250,11 @@ def process_turn(
     history: List[Dict[str, str]],
     state: str = "greeting",
     collected_info: Optional[Dict[str, Any]] = None,
+    planned_slot_id: Optional[str] = None,
+    slot_prompt_hint: Optional[str] = None,
 ) -> Dict[str, Any]:
-    return _client_instance.process_turn(message, history, state, collected_info)
+    return _client_instance.process_turn(
+        message, history, state, collected_info,
+        planned_slot_id=planned_slot_id,
+        slot_prompt_hint=slot_prompt_hint,
+    )

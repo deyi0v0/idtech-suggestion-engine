@@ -8,13 +8,7 @@ import DocManager from "./pages/maintenance/DocManager"
 import ChatWindow from "./components/ChatWindow"
 import DebugPanel from "./components/DebugPanel"
 import type { Message, Product } from "./types/messages"
-import { sendChatMessage, type ChatResponse } from "./api/client"
-
-const WELCOME_MESSAGE: Message = {
-  id: "welcome-1",
-  role: "bot",
-  text: "Hi! I'm the IDTECH Helper Agent. How can I help you today?",
-};
+import { createSession, sendChatMessage, type ChatResponse } from "./api/client"
 
 const normalizeBotText = (raw: string): string => {
   const lines = raw
@@ -31,7 +25,7 @@ const normalizeBotText = (raw: string): string => {
 };
 
 function App() {
-  const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const [disabled, setDisabled] = useState(false);
   const [isLightTheme, setIsLightTheme] = useState(false);
@@ -39,6 +33,7 @@ function App() {
   // State machine tracking — accumulated structured data and current phase
   const [collectedInfo, setCollectedInfo] = useState<Record<string, unknown>>({});
   const [nextState, setNextState] = useState<string | undefined>(undefined);
+  const [sessionId, setSessionId] = useState<string | undefined>(undefined);
 
   // Keep a ref to the latest collectedInfo so the onSend closure always has fresh data
   const collectedInfoRef = useRef(collectedInfo);
@@ -48,8 +43,31 @@ function App() {
     document.body.classList.toggle("light-theme", isLightTheme);
   }, [isLightTheme]);
 
-  const buildHistory = (): { role: "user" | "assistant"; content: string }[] =>
-    messages.map((m) => ({ role: m.role === "user" ? "user" : "assistant", content: m.text }));
+  useEffect(() => {
+    const initSession = async () => {
+      try {
+        const session = await createSession();
+        setSessionId(session.session_id);
+        setNextState(session.stage);
+        setMessages([
+          {
+            id: `welcome-${Date.now()}`,
+            role: "bot",
+            text: session.message,
+          },
+        ]);
+      } catch (err) {
+        setMessages([
+          {
+            id: `welcome-error-${Date.now()}`,
+            role: "bot",
+            text: `Error: ${String(err)}`,
+          },
+        ]);
+      }
+    };
+    void initSession();
+  }, []);
 
   const onSend = useCallback(async (text: string) => {
     const userMsg: Message = { id: `u-${Date.now()}`, role: "user", text };
@@ -58,13 +76,14 @@ function App() {
     setDisabled(true);
 
     try {
-      // Send current collected_info so the backend's state machine is continuous
       const req = {
         message: text,
-        history: buildHistory(),
-        collected_info: collectedInfoRef.current,
+        session_id: sessionId,
       };
       const resp: ChatResponse = await sendChatMessage(req);
+      if (resp.session_id) {
+        setSessionId(resp.session_id);
+      }
 
       const cleanedText = normalizeBotText(resp.text);
 

@@ -1,13 +1,12 @@
-export interface ChatHistoryItem {
-  role: "user" | "assistant";
-  content: string;
-}
-
 export interface ChatRequest {
   message: string;
-  history?: ChatHistoryItem[];
-  /** Structured info accumulated by the backend state machine. Sent back each turn. */
-  collected_info?: Record<string, unknown>;
+  session_id?: string;
+}
+
+export interface SessionResponse {
+  session_id: string;
+  message: string;
+  stage: string;
 }
 
 export interface InstallationDoc {
@@ -39,6 +38,7 @@ export interface ChatResponse {
   type: "question" | "recommendation" | "clarification" | "error";
   text: string;
   quick_replies?: string[];
+  session_id?: string;
   recommendation?: RecommendationBundle;
   /** Extracted info from the LLM tool call, we will merge into collected_info on the frontend. */
   new_info?: Record<string, unknown>;
@@ -79,9 +79,12 @@ export async function sendChatMessage(chatRequest: ChatRequest): Promise<ChatRes
   return response.json() as Promise<ChatResponse>;
 }
 
-/** @deprecated Backend no longer has a separate force-recommendation endpoint. Use sendChatMessage instead. */
-export async function forceChatMessage(chatRequest: ChatRequest): Promise<ChatResponse> {
-  return sendChatMessage(chatRequest);
+export async function createSession(): Promise<SessionResponse> {
+  const response = await apiFetch("/api/session", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+  return response.json() as Promise<SessionResponse>;
 }
 
 export async function downloadPDF(payload: PDFRequest): Promise<Blob> {

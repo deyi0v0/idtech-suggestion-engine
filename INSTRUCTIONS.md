@@ -40,3 +40,15 @@
 cd frontend
 npm run dev
 ```
+
+
+## Example response to get a recommendation
+```
+Use case: Parking Payment Systems 
+Environment: Outdoor (-20C to 65C) 
+Card types: Contact (chip), Contactless (tap), Magstripe (swipe) 
+PIN: Yes, PIN required 
+Standalone: Host-controlled 
+Host interface: RS232 (or USB / Ethernet) 
+Display: Yes, display needed
+```

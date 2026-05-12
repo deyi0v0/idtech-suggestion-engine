@@ -1,8 +1,8 @@
 import type { Message, Product } from "../types/messages";
-import { forceChatMessage, ChatRequest, ChatResponse } from "../api/client";
+import { sendChatMessage, ChatResponse } from "../api/client";
 
 interface Props {
-  buildHistory: () => { role: "user" | "assistant"; content: string }[];
+  sessionId?: string;
   setMessages: (updater: (prev: Message[]) => Message[]) => void;
   setIsTyping: (v: boolean) => void;
   setDisabled: (v: boolean) => void;
@@ -12,7 +12,7 @@ interface Props {
 const forceRecommendationPrompt =
   "Recommendation request: Please produce a RecommendationBundle JSON for the following scenario. Business: retail convenience store. Power: plugged into wall outlet. Card types: contact, contactless, magstripe. PIN entry: yes. Device: stand-alone unit. Host: none. Communication: Ethernet. Environment: indoor. Operating temps: 0-40C. Display: yes. Previous products: Ingenico and IDTECH. Return only valid JSON matching the RecommendationBundle schema with fields hardware_items, hardware_name, and explanation. Do not include extra text.";
 
-export default function ForceRecommendationButton({ buildHistory, setMessages, setIsTyping, setDisabled, disabled }: Props) {
+export default function ForceRecommendationButton({ sessionId, setMessages, setIsTyping, setDisabled, disabled }: Props) {
   const handleClick = async () => {
     const text = forceRecommendationPrompt;
     const userMsg: Message = { id: `u-${Date.now()}`, role: "user", text };
@@ -20,8 +20,7 @@ export default function ForceRecommendationButton({ buildHistory, setMessages, s
     setIsTyping(true);
     setDisabled(true);
     try {
-      const req: ChatRequest & { force_recommendation?: boolean } = { message: text, history: buildHistory(), force_recommendation: true } as any;
-      const resp = await forceChatMessage(req);
+      const resp = await sendChatMessage({ message: text, session_id: sessionId });
 
       const typedResp = resp as ChatResponse;
       const botText = typedResp.text;

@@ -18,6 +18,12 @@ class DebugTrace(BaseModel):
     final_response_type: ResponseType
     mismatch_detected: bool = False
     attempt_count: int = 0
+    # Slot planner trace fields
+    planned_slot: Optional[str] = None
+    accepted_slot: Optional[str] = None
+    choice_validation_result: Optional[str] = None  # "valid" | "rejected_mismatch" | "rejected_vocab" | "fallback"
+    parser_used: Optional[str] = None  # "boolean" | "number" | "volume_ticket" | "choice" | None
+    parser_succeeded: bool = False
 
     model_config = ConfigDict(extra="forbid")
 
@@ -31,5 +37,10 @@ class ChatResponse(BaseModel):
     new_info: Dict[str, Any] = Field(default_factory=dict)
     next_state: Optional[ConversationState] = None
     debug: Optional[DebugTrace] = Field(default=None)
+    debug_match: Optional[Dict[str, Any]] = None
+    # Slot planner surface fields (for frontend debugging)
+    planned_slot: Optional[str] = None
+    accepted_slot: Optional[str] = None
+    choice_validation_result: Optional[str] = None
 
     model_config = ConfigDict(extra="forbid")
