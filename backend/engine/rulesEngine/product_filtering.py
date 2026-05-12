@@ -21,7 +21,21 @@ def product_filtering(db: Session, constraints: Dict[str, Any]) -> List[Dict[str
         is_standalone=constraints.get("is_standalone")
     )
 
-    # 2. Format the result into rich JSON for the LLM
+    # 2. Fallback: If category or use_case was too restrictive, try again without them
+    if not hardware_list and (constraints.get("category") or constraints.get("use_case")):
+        hardware_list = repo.find_products(
+            category=None,
+            use_case=None,
+            input_power=constraints.get("input_power"),
+            interface=constraints.get("interface"),
+            temp=constraints.get("operate_temperature"),
+            extra_filter=constraints.get("extra_specs_filter"),
+            query=constraints.get("search_query"),
+            is_outdoor=constraints.get("is_outdoor"),
+            is_standalone=constraints.get("is_standalone")
+        )
+
+    # 3. Format the result into rich JSON for the LLM
     results = []
     for h in hardware_list:
         results.append({
