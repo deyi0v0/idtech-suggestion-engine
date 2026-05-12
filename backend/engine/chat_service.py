@@ -65,6 +65,43 @@ class ChatService:
         }
 
     @staticmethod
+    def _is_valid_question_reply(text: str) -> bool:
+        if not text or not text.strip():
+            return False
+        lowered = text.lower()
+        closing_markers = [
+            "feel free to ask",
+            "let me know if you have any more questions",
+            "if you have any more questions",
+            "anything else i can help",
+        ]
+        if any(marker in lowered for marker in closing_markers):
+            return False
+        return "?" in text
+
+    @staticmethod
+    def _fallback_question_for_slot(slot: SlotDef) -> str:
+        by_slot = {
+            "vertical": "What industry or use case are you working on?",
+            "indoor_outdoor": "Will your deployment be indoors or outdoors?",
+            "monthly_volume": "About how many transactions do you expect per month?",
+            "card_types": "Which card types do you need to accept: contact/chip, contactless/tap, or magstripe/swipe?",
+            "needs_pin": "Do customers need to enter a PIN on the device?",
+            "is_standalone": "Will this be a standalone device, or host-controlled?",
+            "power_source": "What power source is available: wall outlet, USB power, or battery?",
+            "host_interface": "Which host interface do you need: USB, RS232/Serial, Ethernet, or Bluetooth?",
+            "standalone_comms": "For standalone deployment, which communication method do you need: Ethernet, WiFi, or Cellular?",
+            "needs_display": "Do you need a display on the device?",
+            "lead_name": "Could I get your name so we can follow up with the right specialist?",
+            "lead_email": "Could you share the best email address for follow-up?",
+        }
+        return by_slot.get(slot.id, "Could you share a bit more detail?")
+
+    @staticmethod
+    def _build_slot_question(slot: SlotDef) -> str:
+        return ChatService._fallback_question_for_slot(slot)
+
+    @staticmethod
     def _detect_pricing(message: str) -> bool:
         lower = message.lower()
         return any(kw in lower for kw in ChatService.PRICING_KEYWORDS)
@@ -637,8 +674,10 @@ class ChatService:
         if next_state != next_slot.state:
             new_info["__state_override"] = next_state.value
 
-        # Build the reply text
+        # Keep the LLM conversational tone, but guard against non-question drift.
         reply = llm_result.get("reply", "") or ""
+        if not self._is_valid_question_reply(reply):
+            reply = self._fallback_question_for_slot(next_slot)
 
         # ── 10. Build debug trace ──
         debug = DebugTrace(
