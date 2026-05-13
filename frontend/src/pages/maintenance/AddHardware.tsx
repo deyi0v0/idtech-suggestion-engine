@@ -45,7 +45,7 @@ export default function AddHardware() {
                 ik_rating: form.ik_rating.trim() || null,
                 interface: form.interface.trim() || null,
             };
-            const res = await fetch("http://localhost:8000/api/maintenance/hardware/", {
+            const res = await fetch("http://localhost:8000/api/maintenance/hardware", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),

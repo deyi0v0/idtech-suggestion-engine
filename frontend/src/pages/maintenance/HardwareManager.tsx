@@ -12,6 +12,7 @@ type HardwareDevice = {
     ip_rating: string | null;
     ik_rating: string | null;
     interface: string | null;
+    is_active: boolean;
 };
 
 const COLUMNS: ColumnDef<HardwareDevice>[] = [
@@ -41,8 +42,9 @@ export default function HardwareManager() {
             .then((data) => {
                 if (!Array.isArray(data)) throw new Error("Unexpected response format");
                 setDevices(data);
+                console.log(data);
             })
-            .catch((err) => setError(err.message))
+            .catch((err) => _error(err.message))
             .finally(() => setLoading(false));
     }, []);
 
@@ -50,7 +52,7 @@ export default function HardwareManager() {
         if (selectedId === null) return;
         setDeleting(true);
         try {
-            const res = await fetch(`http://localhost:8000/api/maintenance/hardware/${selectedId}`, {
+            const res = await fetch(`http://localhost:8000/api/maintenance/hardware/${selectedDevice.model_name}`, {
                 method: "DELETE",
             });
             if (!res.ok) {
@@ -61,7 +63,7 @@ export default function HardwareManager() {
             setSelectedId(null);
             setShowModal(false);
         } catch (err) {
-            setError(err instanceof Error ? err.message : "Unknown error");
+            _error(err instanceof Error ? err.message : "Unknown error");
             setShowModal(false);
         } finally {
             setDeleting(false);
@@ -69,6 +71,10 @@ export default function HardwareManager() {
     }
 
     const selectedDevice = devices.find((d) => d.id === selectedId) ?? null;
+    function _error(message:string) {
+        setError(message);
+        setSelectedId(null);
+    }
 
     return (
         <div className="flex flex-col p-0 text-black grow gap-3 min-h-0">
@@ -104,6 +110,15 @@ export default function HardwareManager() {
                     onClick={() => navigate("/admin/hardware/add")}
                 >
                     Add Device
+                </ColorButton>
+                <ColorButton
+                    className="mr-1"
+                    color="var(--back-gray)"
+                    textColor="black"
+                    disabled={selectedId === null}
+                    onClick={() => navigate} // TODO: navigate to the edit page once implemented
+                >
+                    View/Edit Details
                 </ColorButton>
                 <ColorButton
                     color="var(--warning-red)"

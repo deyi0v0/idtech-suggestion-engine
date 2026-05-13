@@ -3,14 +3,14 @@ export type ColumnDef<T> = {
     key: keyof T;
 };
 
-type DataTableProps<T extends { id: number }> = {
+type DataTableProps<T extends { id: number, is_active?: boolean }> = {
     columns: ColumnDef<T>[];
     data: T[];
     selectedId: number | null;
     onSelectRow: (id: number) => void;
 };
 
-export default function DataTable<T extends { id: number }>({
+export default function DataTable<T extends { id: number, is_active?: boolean }>({
     columns,
     data,
     selectedId,
@@ -33,6 +33,7 @@ export default function DataTable<T extends { id: number }>({
                 </thead>
                 <tbody>
                     {data.map((row, index) => {
+                        if ("is_active" in row && row.is_active === false) return null;
                         const isSelected = row.id === selectedId;
                         return (
                             <tr

@@ -39,10 +39,10 @@ export default function SoftwareManager() {
     }, []);
 
     async function handleConfirmRemove() {
-        if (selectedId === null) return;
+        if (selectedId === null || selectedDevice === null) return;
         setDeleting(true);
         try {
-            const res = await fetch(`http://localhost:8000/api/maintenance/software/${selectedId}`, {
+            const res = await fetch(`http://localhost:8000/api/maintenance/software/${selectedDevice.name}`, {
                 method: "DELETE",
             });
             if (!res.ok) {
@@ -67,7 +67,7 @@ export default function SoftwareManager() {
             <div>
                 <h1 className="font-semibold text-2xl">Software</h1>
                 <p className="text-gray-600 text-sm">
-                    This is a list of the current software that the AI is able to recommend,
+                    This is a list of the current software that the AI is able to recommend.
                 </p>
                 <p className="text-gray-600 text-sm">
                     To remove software, select the row and click "Remove Software." To add new software, click "Add Software."

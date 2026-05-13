@@ -28,7 +28,7 @@ export default function AddSoftware() {
         setSubmitting(true);
         try {
             const payload = {
-                software_name: form.software_name.trim(),
+                name: form.software_name.trim(),
             };
             const res = await fetch("http://localhost:8000/api/maintenance/software/", {
                 method: "POST",

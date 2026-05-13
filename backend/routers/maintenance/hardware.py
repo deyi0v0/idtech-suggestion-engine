@@ -36,10 +36,10 @@ def _to_out(hw: Hardware) -> HardwareOut:
     )
 
 
-@router.get("", response_model=List[HardwareSummary])
-def list_hardware(db: Session = Depends(get_db)):
-    repo = AdminRepository(db)
-    return repo.list_hardware()
+# @router.get("", response_model=List[HardwareSummary])
+# def list_hardware(db: Session = Depends(get_db)):
+#     repo = AdminRepository(db)
+#     return repo.list_hardware()
 
 
 @router.get("/{model_name}", response_model=HardwareOut)
@@ -109,27 +109,28 @@ def delete_hardware(model_name: str, db: Session = Depends(get_db)):
 
 # from fastapi import APIRouter, Depends, HTTPException
 # from pydantic import BaseModel
-# from sqlalchemy import select
+from sqlalchemy import select
 # from sqlalchemy.orm import Session
 # from typing import Optional
 
-# @router.get("/")
-# def get_all_hardware(db: Session = Depends(get_db)):
-#     try:
-#         stmt = select(
-#             Hardware.id,
-#             Hardware.model_name,
-#             Hardware.operate_temperature,
-#             Hardware.input_power,
-#             Hardware.ip_rating,
-#             Hardware.ik_rating,
-#             Hardware.interface,
-#         ).order_by(Hardware.model_name)
-#         rows = db.execute(stmt).mappings().all()
-#         return [dict(r) for r in rows]
-#     except Exception as e:
-#         print(f"ERROR in get_all_hardware: {type(e).__name__}: {e}")
-#         raise HTTPException(status_code=500, detail=str(e))
+@router.get("/")
+def get_all_hardware(db: Session = Depends(get_db)):
+    try:
+        stmt = select(
+            Hardware.id,
+            Hardware.model_name,
+            Hardware.is_active,
+            Hardware.operate_temperature,
+            Hardware.input_power,
+            Hardware.ip_rating,
+            Hardware.ik_rating,
+            Hardware.interface,
+        ).order_by(Hardware.model_name)
+        rows = db.execute(stmt).mappings().all()
+        return [dict(r) for r in rows]
+    except Exception as e:
+        print(f"ERROR in get_all_hardware: {type(e).__name__}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # class HardwareCreate(BaseModel):
 #     model_name: str

@@ -23,7 +23,7 @@ app.add_middleware(
 # Customer Routes
 app.include_router(chat.router, prefix="/api", tags=["Chat"])
 app.include_router(pdf.router, prefix="/api/pdf", tags=["PDF"])
-app.include_router(maintenance_hardware.router, prefix="/api/maintenance/hardware", tags=["Maintenance - Hardware"])
+# app.include_router(maintenance_hardware.router, prefix="/api/maintenance/hardware", tags=["Maintenance - Hardware"])
 
 # Maintenance Routes
 app.include_router(hardware.router, prefix="/api/maintenance/hardware", tags=["Maintenance Hardware"])
