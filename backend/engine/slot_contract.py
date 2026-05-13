@@ -3,9 +3,11 @@ Enforces the ASK_SLOT contract between the LLM and the slot planner.
 
 When a slot is planned, the LLM MUST produce a valid question about that slot.
 If it doesn't (e.g., it changes the subject, or produces a closing remark),
-this service falls back to a canned question and appropriate choices.
+this service falls back to a canned question.
 
-This is the backend's last line of defense against LLM drift.
+Quick-reply buttons are ONLY provided when the LLM voluntarily calls the
+`present_choices` tool. No static fallback choices are injected — if the
+LLM didn't think buttons were appropriate, they won't appear.
 """
 
 from typing import List, Tuple
@@ -122,44 +124,48 @@ class SlotContractEnforcer:
             #    the next slot, APPEND the next question naturally.
             # 3. If the reply is empty or has closing markers, REPLACE with
             #    a canned transition or "Got it, thanks!" as last resort.
+            #
+            # Choices: only provided when the LLM called present_choices.
+            # No static fallback — if the LLM didn't think buttons made sense,
+            # injecting them would confuse the user.
             has_q = "?" in final_reply
             has_closing = SlotContractEnforcer._has_closing_markers(final_reply)
 
+            if suggested_choices and choice_validation == "valid":
+                choices = list(suggested_choices)[:4]
+            else:
+                choices = []
+
             if has_q:
-                pass  # LLM asked a question — keep it (likely the next topic)
+                # LLM asked a question — keep it (likely the right next topic).
+                final_choices = choices
             elif has_closing or not final_reply.strip():
                 # Bad reply — use canned transition or generic
                 if next_slot_id:
                     q = SlotContractEnforcer._next_slot_question(next_slot_id)
-                    final_reply = f"Got it! {q}" if q else "Got it, thanks!"
+                    if q:
+                        final_reply = f"Got it! {q}"
+                        final_choices = choices
+                    else:
+                        final_reply = "Got it, thanks!"
                 else:
                     final_reply = "Got it, thanks!"
             else:
-                # Clean acknowledgment with no question and no next slot hint
-                # in the LLM's own words — append the next question.
+                # Clean acknowledgment with no question — append next question
                 if next_slot_id:
                     q = SlotContractEnforcer._next_slot_question(next_slot_id)
                     if q:
                         final_reply = f"{final_reply.strip()} {q}"
+                        final_choices = choices
                 # else: no next slot, keep the clean ack
 
-            return final_reply, [], final_validation
+            return final_reply, final_choices, final_validation
 
         if not SlotContractEnforcer.is_valid_question_reply(final_reply):
             final_reply = SlotContractEnforcer.fallback_question_for_slot(slot)
             final_validation = "contract_reply_fallback"
 
-        # Free-text slots don't need choices
-        if slot.parser.value == "free_text":
-            return final_reply, [], final_validation
-
-        # Use LLM-suggested choices if they're valid
+        # Choices: only from LLM's present_choices. No static fallback.
         if suggested_choices and choice_validation == "valid":
             final_choices = list(suggested_choices)[:4]
-            return final_reply, final_choices, final_validation
-
-        # Fallback to predefined choices
-        final_choices = list(slot.fallback_choices or [])[:4]
-        if final_validation in ("none", "rejected_mismatch", "rejected_vocab"):
-            final_validation = "contract_choices_fallback"
         return final_reply, final_choices, final_validation
