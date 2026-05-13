@@ -22,11 +22,11 @@ INSTRUCTIONS:
 - Do NOT ask about pricing, quotes, or mention product names.
 - NEVER use the words "lead" or "lead capture" with the customer.
 - If the user already provided information relevant to this topic, call
-  `update_lead_info` to capture it.
+  `{tool_name}` to capture it.
 
 CRITICAL RULES:
 1. If the user's message contains new information about this topic,
-   call `update_lead_info` first to capture it.
+   call `{tool_name}` first to capture it.
 2. Then (or if no info to capture) ask your question about the planned topic.
 3. If the question has structured answers, call `present_choices` with the
    slot "{slot_id}".
@@ -61,9 +61,9 @@ Your job:
 - NEVER use the words "lead" or "lead capture" with the customer. Say "contact details" or "your information" instead.
 
 CRITICAL RULES (follow them in order):
-1. Whenever the user provides new information (vertical, indoor/outdoor, temperature, etc.), you MUST call `update_lead_info` to capture it as structured data. This is the ONLY way the system remembers.
+1. Whenever the user provides new information (vertical, indoor/outdoor, temperature, etc.), you MUST call the available extraction tool to capture it as structured data. This is the ONLY way the system remembers.
 2. After asking a question where specific answers make sense, call `present_choices` to offer clickable quick-reply buttons. This helps the user respond quickly.
-3. You can call BOTH tools in the same response — first `update_lead_info` to capture data, then `present_choices` to offer follow-up options.
+3. You can call BOTH tools in the same response — first capture the data, then `present_choices` to offer follow-up options.
 4. Always write your conversational reply in the message content first, then call the tools.
 """,
 
@@ -79,7 +79,7 @@ Never discuss pricing, quotes, or product names.
 NEVER use the words "lead" or "lead capture" with the customer.
 
 CRITICAL RULES (follow them in order):
-1. Whenever the user provides new information (indoor/outdoor, temperature, weather concerns), you MUST call `update_lead_info` to capture it.
+1. Whenever the user provides new information (indoor/outdoor, temperature, weather concerns), you MUST call the available extraction tool to capture it.
 2. After asking a question with specific possible answers, call `present_choices` to offer clickable buttons.
 3. You can call BOTH tools in the same response.
 4. Always write your conversational reply in the message content first, then call the tools.
@@ -97,65 +97,6 @@ Keep it light — "just a rough idea is fine."
 Ask exactly ONE question per message (never stack multiple asks).
 Never discuss pricing, quotes, or product names.
 NEVER use the words "lead" or "lead capture" with the customer.
-
-CRITICAL RULES (follow them in order):
-1. Whenever the user provides new information (volume, ticket size), you MUST call `update_lead_info` to capture it.
-2. After asking a question with specific possible answers, call `present_choices` to offer clickable buttons.
-3. You can call BOTH tools in the same response.
-4. Always write your conversational reply in the message content first, then call the tools.
-""",
-
-    "technical_context": """
-You are gathering technical integration details. Ask exactly ONE question at a time.
-
-Topics to cover naturally:
-1. **Power source** — wall outlet, USB, battery? Any specific voltage (12V, 24V, 5V)?
-2. **Card types** — contact (chip), contactless (tap), magstripe (swipe)?
-3. **PIN entry** — do they need the customer to enter a PIN?
-4. **Standalone vs host-controlled** — does the device run on its own, or connect to a host computer/terminal?
-   - If host-controlled: what interface? (USB, RS232, UART, Bluetooth, Ethernet)
-   - If standalone: what communication? (Ethernet, WiFi, Cellular)
-5. **Display** — do they need a screen for customer interaction?
-6. **Previous products used** — any existing ID TECH devices they're familiar with?
-
-IMPORTANT:
-- Never discuss pricing, quotes, or product names.
-- Do NOT mention specific model numbers.
-- Let the backend handle matching — you just collect information.
-- NEVER use the words "lead" or "lead capture" with the customer.
-- Do NOT ask about transaction volume, ticket size, or future volume in this state.
-- If you call `present_choices`, the choices MUST match the exact topic of your most recent question.
-- Never show choices from a different topic than the question text.
-
-Topic-to-choice alignment examples (follow strictly):
-1) If your question is about card types:
-   - Good choices: "Contact (chip)", "Contactless (tap)", "Magstripe (swipe)"
-   - Bad choices: "Battery", "USB", "Ethernet"
-2) If your question is about power source:
-   - Good choices: "Wall outlet", "USB power", "Battery"
-   - Bad choices: "Contactless (tap)", "Magstripe (swipe)"
-3) If your question is about host vs standalone:
-   - Good choices: "Standalone", "Host-controlled", "Not sure yet"
-   - Bad choices: "12V", "24V", "5V"
-4) If your question is about host interface:
-   - Good choices: "USB", "RS232", "Ethernet", "Bluetooth"
-   - Bad choices: "PIN required", "No PIN"
-5) If your question is about PIN entry:
-   - Good choices: "Yes, PIN required", "No PIN needed", "Not sure yet"
-   - Bad choices: "WiFi", "Cellular"
-6) If your question is about display needs:
-   - Good choices: "Yes, display needed", "No display needed", "Not sure yet"
-   - Bad choices: "Contact (chip)", "Magstripe (swipe)"
-
-Before calling `present_choices`, do a self-check:
-- Does each choice directly answer this exact question?
-- If NO for any choice, do not include it.
-
-CRITICAL RULES (follow them in order):
-1. Whenever the user provides new information, you MUST call `update_lead_info` to capture it.
-2. When a question has a set of common answers, call `present_choices` to offer clickable buttons.
-3. You can call BOTH tools in the same response.
-4. Always write your conversational reply in the message content first, then call the tools.
 """,
 
     "recommendation": """
@@ -169,7 +110,7 @@ Rules:
 - Ask exactly ONE question per message.
 - NEVER use the words "lead" or "lead capture" with the customer.
 
-Use the `update_lead_info` tool to capture any contact details the user provides.
+Use the available extraction tool to capture any contact details the user provides.
 """,
 
     "lead_capture": """
@@ -186,7 +127,7 @@ Never discuss pricing, quotes, or specific product names.
 Ask exactly ONE question per message.
 NEVER use the words "lead" or "lead capture" with the customer.
 
-Use the `update_lead_info` tool to capture the user's answers.
+Use the available extraction tool to capture the user's answers.
 """,
 
     "complete": """
@@ -198,111 +139,6 @@ Thank the user for their time. Let them know:
 Keep it warm and professional. Your job here is done.
 NEVER use the words "lead" or "lead capture" with the customer.
 """,
-}
-
-
-UPDATE_LEAD_INFO_TOOL = {
-    "type": "function",
-    "function": {
-        "name": "update_lead_info",
-        "description": "Capture any qualification or lead information the user has shared in their message. Only fill fields you detected — leave others unset.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "environment": {
-                    "type": "object",
-                    "description": "Environmental context",
-                    "properties": {
-                        "vertical": {
-                            "type": "string",
-                            "description": "Business vertical/industry: parking, transit, vending, retail, EV charging, banking, loyalty, etc."
-                        },
-                        "indoor_outdoor": {
-                            "type": "string",
-                            "enum": ["indoor", "outdoor", "outdoor harsh"],
-                            "description": "Deployment environment"
-                        },
-                        "temperature_range": {
-                            "type": "string",
-                            "description": "Operating temperature range, e.g., '-20C to 65C'"
-                        }
-                    }
-                },
-                "transaction_profile": {
-                    "type": "object",
-                    "description": "Transaction volume information",
-                    "properties": {
-                        "monthly_volume": {
-                            "type": "integer",
-                            "description": "Estimated monthly transaction volume"
-                        },
-                        "average_ticket": {
-                            "type": "number",
-                            "description": "Average transaction value in dollars"
-                        }
-                    }
-                },
-                "technical_context": {
-                    "type": "object",
-                    "description": "Technical integration details",
-                    "properties": {
-                        "power_source": {
-                            "type": "string",
-                            "description": "Power source: wall outlet, USB, battery, etc."
-                        },
-                        "voltage": {
-                            "type": "string",
-                            "description": "Specific voltage if mentioned, e.g., '12V', '24V', '5V'"
-                        },
-                        "card_types": {
-                            "type": "array",
-                            "items": {"type": "string", "enum": ["contact", "contactless", "magstripe"]},
-                            "description": "Payment card types needed"
-                        },
-                        "needs_pin": {
-                            "type": "boolean",
-                            "description": "Does the user need PIN entry?"
-                        },
-                        "is_standalone": {
-                            "type": "boolean",
-                            "description": "Is the device standalone (no host computer)?"
-                        },
-                        "host_interface": {
-                            "type": "string",
-                            "description": "Interface if host-controlled: USB, RS232, UART, Bluetooth, Ethernet"
-                        },
-                        "host_os": {
-                            "type": "string",
-                            "description": "Host operating system if applicable"
-                        },
-                        "standalone_comms": {
-                            "type": "string",
-                            "description": "Communication method if standalone: Ethernet, WiFi, Cellular"
-                        },
-                        "needs_display": {
-                            "type": "boolean",
-                            "description": "Does the user need a display/screen?"
-                        },
-                        "previous_products": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": "Any ID TECH products they've used before"
-                        }
-                    }
-                },
-                "lead": {
-                    "type": "object",
-                    "description": "Contact information for lead capture",
-                    "properties": {
-                        "name": {"type": "string"},
-                        "email": {"type": "string"},
-                        "company": {"type": "string"},
-                        "phone": {"type": "string"}
-                    }
-                }
-            }
-        }
-    }
 }
 
 
@@ -330,7 +166,92 @@ PRESENT_CHOICES_TOOL = {
 }
 
 
-TOOLS = [UPDATE_LEAD_INFO_TOOL, PRESENT_CHOICES_TOOL]
+def build_tools_for_planned_slot(slot_id: Optional[str]) -> List[Dict[str, Any]]:
+    """
+    Build the tool list for a given planned slot.
+
+    Returns a list containing:
+    1. A slot-specific extraction tool that ONLY accepts that slot's field(s)
+    2. The `present_choices` tool for offering quick-reply buttons
+
+    When slot_id is None (no planned slot), returns only `present_choices`.
+    """
+    if not slot_id:
+        return [PRESENT_CHOICES_TOOL]
+
+    from ..engine.slot_planner import SLOT_BY_ID, SlotParser
+
+    slot = SLOT_BY_ID.get(slot_id)
+    if not slot:
+        return [PRESENT_CHOICES_TOOL]
+
+    # Parse the dotted path: "environment.vertical" -> section="environment", field="vertical"
+    parts = slot.path.split(".")
+    if len(parts) != 2:
+        return [PRESENT_CHOICES_TOOL]
+
+    section, field = parts
+
+    # Build the field property based on parser type
+    if slot.parser == SlotParser.BOOLEAN:
+        prop: Dict[str, Any] = {
+            "type": "boolean",
+            "description": f"User's yes/no answer for: {slot.prompt_hint}",
+        }
+    elif slot.parser == SlotParser.NUMBER:
+        prop = {
+            "type": "integer",
+            "description": f"User's numeric answer for: {slot.prompt_hint}",
+        }
+    elif slot.parser == SlotParser.CHOICE:
+        desc = slot.prompt_hint
+        # For enum-like choices, use allowed_choices as enum values
+        if slot.allowed_choices:
+            prop = {
+                "type": "string",
+                "enum": slot.allowed_choices,
+                "description": f"User's selection for: {desc}",
+            }
+        else:
+            prop = {"type": "string", "description": f"User's selection for: {desc}"}
+    elif slot.parser in (SlotParser.FREE_TEXT, SlotParser.VOLUME_TICKET):
+        prop = {
+            "type": "string",
+            "description": f"User's response for: {slot.prompt_hint}",
+        }
+    else:
+        prop = {"type": "string", "description": f"User's response for: {slot.prompt_hint}"}
+
+    tool_name = f"extract_{slot_id}"
+
+    extraction_tool = {
+        "type": "function",
+        "function": {
+            "name": tool_name,
+            "description": (
+                f"Capture the user's answer about {slot.prompt_hint.lower()}. "
+                "Only call this if the user explicitly provided this information in their message."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    section: {
+                        "type": "object",
+                        "properties": {
+                            field: prop,
+                        },
+                        "required": [field],
+                        "additionalProperties": False,
+                        "description": f"Section containing the {field} field.",
+                    }
+                },
+                "required": [section],
+                "additionalProperties": False,
+            },
+        },
+    }
+
+    return [extraction_tool, PRESENT_CHOICES_TOOL]
 
 
 def build_known_summary(collected_info: Dict[str, Any] | None) -> str:
@@ -402,10 +323,12 @@ def build_chat_prompt(
     known_summary = build_known_summary(collected_info)
 
     if planned_slot_id and slot_prompt_hint:
+        tool_name = f"extract_{planned_slot_id}"
         system_content = SLOT_BOUND_SYSTEM_PROMPT.format(
             slot_id=planned_slot_id,
             slot_prompt_hint=slot_prompt_hint,
             known_summary=known_summary,
+            tool_name=tool_name,
         )
     else:
         state_prompt = STATE_PROMPTS.get(state, STATE_PROMPTS["greeting"])

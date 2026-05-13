@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 from dotenv import load_dotenv
 from openai import OpenAI
 
-from .prompts import TOOLS, build_chat_prompt
+from .prompts import build_tools_for_planned_slot, build_chat_prompt
 
 # Lazy import to avoid circular dependency at module level
 _slot_planner = None
@@ -75,6 +75,9 @@ class LLMClient:
             "choice_validation": str,    # "valid" | "rejected_mismatch" | "rejected_vocab" | "fallback"
         }
         """
+        # Build per-slot tools (constrained to the current planned slot only)
+        tools = build_tools_for_planned_slot(planned_slot_id)
+
         messages: List[Dict[str, Any]] = build_chat_prompt(
             message, history, state, collected_info,
             planned_slot_id=planned_slot_id,
@@ -97,7 +100,7 @@ class LLMClient:
                 response = self.client.chat.completions.create(
                     model=self.model,
                     messages=messages,
-                    tools=TOOLS,
+                    tools=tools,
                     tool_choice=effective_tool_choice,
                 )
             except Exception as exc:
@@ -147,7 +150,7 @@ class LLMClient:
                 except json.JSONDecodeError:
                     args = {}
 
-                if fname == "update_lead_info":
+                if fname.startswith("extract_"):
                     if isinstance(args, dict):
                         self._deep_merge_dict(extracted_info, args)
                     tool_was_called = True
@@ -224,7 +227,7 @@ class LLMClient:
                 # Add an extra system hint and let the loop retry
                 messages.append({
                     "role": "system",
-                    "content": "Only use the `update_lead_info` and `present_choices` tools.",
+                    "content": "Only use the available extraction tool and `present_choices` — nothing else.",
                 })
                 # The next iteration will still use effective_tool_choice="auto"
                 # since must_generate_text was just set, but the unknown tool
