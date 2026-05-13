@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+import typing
 from typing import Any, Dict, List, Optional, Set
 
 from .state_machine import CollectedInfo, ConversationState
@@ -310,6 +311,138 @@ def _should_skip_slot(slot: SlotDef, collected: CollectedInfo) -> bool:
         if dep_slot and not _is_slot_answered(dep_slot, collected):
             return True
     return False
+
+
+def normalize_choice(slot_id: str, raw_value: Any) -> Any:
+    """
+    Map raw LLM output to canonical choice value(s) for the given slot.
+
+    Pure function — no LLM dependency, no side effects, fully testable.
+
+    Handles:
+    - Exact matches (case-insensitive)
+    - "all of them" / "everything" → all allowed choices
+    - Comma-separated partial matches ("chip, tap")
+    - Substring / token overlap fuzzy match
+    - Fall through: return raw_value unchanged
+
+    Returns a list for multi-select fields (card_types, previous_products),
+    a scalar string for single-select fields.
+    """
+    slot = SLOT_BY_ID.get(slot_id)
+    if not slot or not slot.allowed_choices:
+        return raw_value
+
+    # Normalize to string
+    if isinstance(raw_value, list):
+        raw_value = ", ".join(raw_value)
+    if not isinstance(raw_value, str):
+        return raw_value
+
+    choices = slot.allowed_choices
+    cleaned = raw_value.strip()
+    lowered = cleaned.lower()
+
+    # "all of them" / "everything" — only valid for multi-select fields
+    # For single-select fields (e.g. indoor_outdoor), "all of them" is ambiguous
+    # and would silently pick the first choice. Fall through to raw value instead.
+    _all_phrases = {"all", "all of them", "everything", "every option",
+                    "all types", "all three", "all the above", "all available",
+                    "yes all", "both", "accept all"}
+    if lowered in _all_phrases:
+        if _is_field_list(slot):
+            return _as_slot_type(slot, list(choices))
+        # Single-select — "all of them" is ambiguous, fall through to raw value
+        return raw_value
+
+    # Exact case-insensitive match against single choice
+    for c in choices:
+        if c.lower() == lowered:
+            return _as_slot_type(slot, [c])
+
+    # Comma-separated tokens: "chip, tap" → match each token to a choice
+    tokens = [t.strip() for t in cleaned.split(",")]
+    matched: List[str] = []
+    for token in tokens:
+        if not token:
+            continue
+        token_lower = token.lower()
+        found = False
+        # Exact token match
+        for c in choices:
+            if c.lower() == token_lower:
+                matched.append(c)
+                found = True
+                break
+        if found:
+            continue
+        # Substring / token overlap: "chip" in "Contact (chip)"
+        for c in choices:
+            c_lower = c.lower()
+            if token_lower in c_lower or c_lower in token_lower:
+                matched.append(c)
+                found = True
+                break
+        if found:
+            continue
+
+    if matched:
+        # Deduplicate preserving order
+        seen: Set[str] = set()
+        result = []
+        for c in matched:
+            if c not in seen:
+                seen.add(c)
+                result.append(c)
+        return _as_slot_type(slot, result)
+
+    # Single fuzzy substring match against whole input
+    for c in choices:
+        if lowered in c.lower() or c.lower() in lowered:
+            return _as_slot_type(slot, [c])
+
+    # Fall through: return raw string unchanged (backend keeps it)
+    return raw_value
+
+
+def _as_slot_type(slot: SlotDef, matched: List[str]) -> Any:
+    """Return a list for multi-select fields, a scalar string otherwise."""
+    if _is_field_list(slot):
+        return matched  # List[str]
+    return matched[0] if matched else ""
+
+
+def _is_field_list(slot: SlotDef) -> bool:
+    """Check whether the field behind a slot is typed as List[str]."""
+    parts = slot.path.split(".")
+    if len(parts) != 2:
+        return False
+    section_name, field_name = parts
+    # Walk the CollectedInfo model to find the field annotation
+    section_info = CollectedInfo.model_fields.get(section_name)
+    if section_info is None:
+        return False
+    section_annotation = section_info.annotation
+    if section_annotation is None:
+        return False
+    # Unwrap Optional[X] → X
+    origin = typing.get_origin(section_annotation)
+    if origin is typing.Union:
+        args = typing.get_args(section_annotation)
+        section_annotation = next((a for a in args if a is not type(None)), section_annotation)
+    if not hasattr(section_annotation, "model_fields"):
+        return False
+    field_info = section_annotation.model_fields.get(field_name)
+    if field_info is None:
+        return False
+    field_annotation = field_info.annotation
+    if field_annotation is None:
+        return False
+    origin = typing.get_origin(field_annotation)
+    if origin is typing.Union:
+        args = typing.get_args(field_annotation)
+        field_annotation = next((a for a in args if a is not type(None)), field_annotation)
+    return typing.get_origin(field_annotation) is list
 
 
 class SlotPlanner:

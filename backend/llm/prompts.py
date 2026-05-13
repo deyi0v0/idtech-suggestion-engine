@@ -8,13 +8,12 @@ SLOT_BOUND_SYSTEM_PROMPT = """
 You are the IDTECH Helper Agent — a warm, friendly sales engineer helping a
 customer find the right payment hardware.
 
-Your ONLY job this turn is to ask about ONE specific topic.  The backend has
-already chosen the topic for you.  Do NOT ask about anything else.
+CURRENT TOPIC: {slot_prompt_hint}
 
-PLANNED TOPIC: {slot_prompt_hint}
+{next_topic_hint}
 
 INSTRUCTIONS:
-- Ask exactly ONE natural, conversational question about this topic.
+- Ask exactly ONE natural, conversational question.
 - If the slot expects specific answers, call `present_choices` with the
   slot identifier "{slot_id}" and 2-4 clear options.
 - If you present choices, every choice MUST directly answer your question.
@@ -25,16 +24,23 @@ INSTRUCTIONS:
   `{tool_name}` to capture it.
 
 CRITICAL RULES (follow them in order):
-1. If the user's message contains new information about this topic,
-   call `{tool_name}` first to capture it.
-2. If the user volunteered information beyond the planned topic
+1. Read the conversation history. If the user's most recent message
+   contains an answer to your last question about this topic,
+   call `{tool_name}` to record their answer.
+2. If the user volunteered information about a different topic
    (e.g. mentioned environment during vertical, or volume during card types),
-   call `capture_additional_info` to capture it.
-3. Ask your one question about the planned topic.
+   call `capture_additional_info` to capture that too.
+3. If you have NOT yet asked a question about this topic in the
+   conversation, ask exactly ONE natural question now.
 4. If the question has structured answers, call `present_choices` with the
    slot "{slot_id}".
 5. Always write your conversational reply in the message content first,
    then call tools.
+6. NEVER produce a closing remark like "feel free to ask" or
+   "let me know if you have questions" — the conversation is still active.
+7. AFTER you call the extraction tool and the customer has answered the
+   current topic, acknowledge naturally. Then IMMEDIATELY ask about the
+   NEXT TOPIC shown above — NOT about today's topic again.
 
 {known_summary}
 
@@ -254,15 +260,11 @@ def build_tools_for_planned_slot(slot_id: Optional[str]) -> List[Dict[str, Any]]
         }
     elif slot.parser == SlotParser.CHOICE:
         desc = slot.prompt_hint
-        # For enum-like choices, use allowed_choices as enum values
-        if slot.allowed_choices:
-            prop = {
-                "type": "string",
-                "enum": slot.allowed_choices,
-                "description": f"User's selection for: {desc}",
-            }
-        else:
-            prop = {"type": "string", "description": f"User's selection for: {desc}"}
+        options_hint = f" Options: {', '.join(slot.allowed_choices)}" if slot.allowed_choices else ""
+        prop = {
+            "type": "string",
+            "description": f"User's answer for: {desc}.{options_hint}",
+        }
     elif slot.parser in (SlotParser.FREE_TEXT, SlotParser.VOLUME_TICKET):
         prop = {
             "type": "string",
@@ -359,6 +361,7 @@ def build_chat_prompt(
     collected_info: Dict[str, Any] = None,
     planned_slot_id: Optional[str] = None,
     slot_prompt_hint: Optional[str] = None,
+    next_topic_hint: Optional[str] = None,
 ) -> List[Dict[str, str]]:
     """
     Build the message list for the LLM call.
@@ -373,11 +376,17 @@ def build_chat_prompt(
 
     if planned_slot_id and slot_prompt_hint:
         tool_name = f"extract_{planned_slot_id}"
+        # Build the next-topic hint block (empty string when no next slot)
+        formatted_next_hint = (
+            f"NEXT TOPIC (ask this AFTER the customer answers the current one):\n{next_topic_hint}"
+            if next_topic_hint else ""
+        )
         system_content = SLOT_BOUND_SYSTEM_PROMPT.format(
             slot_id=planned_slot_id,
             slot_prompt_hint=slot_prompt_hint,
             known_summary=known_summary,
             tool_name=tool_name,
+            next_topic_hint=formatted_next_hint,
         )
     else:
         state_prompt = STATE_PROMPTS.get(state, STATE_PROMPTS["greeting"])

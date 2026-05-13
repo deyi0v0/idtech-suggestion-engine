@@ -63,6 +63,7 @@ class LLMClient:
         collected_info: Optional[Dict[str, Any]] = None,
         planned_slot_id: Optional[str] = None,
         slot_prompt_hint: Optional[str] = None,
+        next_topic_hint: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Send a turn to the LLM and return:
@@ -82,6 +83,7 @@ class LLMClient:
             message, history, state, collected_info,
             planned_slot_id=planned_slot_id,
             slot_prompt_hint=slot_prompt_hint,
+            next_topic_hint=next_topic_hint,
         )
 
         extracted_info: Dict[str, Any] = {}
@@ -94,7 +96,18 @@ class LLMClient:
         for attempt in range(1, self.max_attempts + 1):
             # After tools have been processed once, force the LLM to produce
             # conversational text — no further tool calls allowed this turn.
-            effective_tool_choice = "none" if must_generate_text else "auto"
+            # On retry (attempt > 1), force the specific extraction tool.
+            if must_generate_text:
+                effective_tool_choice: Any = "none"
+            elif attempt > 1 and planned_slot_id:
+                effective_tool_choice = {
+                    "type": "function",
+                    "function": {"name": f"extract_{planned_slot_id}"},
+                }
+            elif attempt > 1:
+                effective_tool_choice = "required"
+            else:
+                effective_tool_choice = "auto"
 
             try:
                 response = self.client.chat.completions.create(
@@ -130,8 +143,20 @@ class LLMClient:
 
             tool_calls = response_message.tool_calls or []
 
-            # ── No tool calls → pure text response, we're done ──
+            # ── No tool calls → retry with hint if attempts remain ──
             if not tool_calls:
+                if attempt < self.max_attempts:
+                    # The LLM responded with text but didn't call any tools.
+                    # Give it another chance with a stronger hint.
+                    messages.append({
+                        "role": "system",
+                        "content": (
+                            "You MUST call the available extraction tool if the user "
+                            "provided any information relevant to the planned topic. "
+                            "Do not just respond with text \u2014 capture the data first."
+                        ),
+                    })
+                    continue
                 return {
                     "reply": reply_text,
                     "extracted_info": extracted_info,
@@ -304,9 +329,11 @@ def process_turn(
     collected_info: Optional[Dict[str, Any]] = None,
     planned_slot_id: Optional[str] = None,
     slot_prompt_hint: Optional[str] = None,
+    next_topic_hint: Optional[str] = None,
 ) -> Dict[str, Any]:
     return _client_instance.process_turn(
         message, history, state, collected_info,
         planned_slot_id=planned_slot_id,
         slot_prompt_hint=slot_prompt_hint,
+        next_topic_hint=next_topic_hint,
     )

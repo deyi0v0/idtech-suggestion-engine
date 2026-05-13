@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 from pydantic import BaseModel, Field
 
@@ -101,14 +101,9 @@ class CollectedInfo(BaseModel):
         if tc.is_standalone:
             constraints["is_standalone"] = True
 
-        # Keep extra spec filtering conservative. Overly broad tag conjunctions
-        # are a common cause of empty matches.
         extra_tags: List[str] = []
         if tc.needs_pin:
             extra_tags.append("PIN")
-        # Do NOT force "display" or "IP" as extra_specs text tags.
-        # Outdoor is already represented by `is_outdoor`, and many valid devices
-        # do not include a literal "display" token in extra_specs.
         if tc.card_types and "contactless" in tc.card_types:
             extra_tags.append("contactless")
         if extra_tags:
@@ -118,6 +113,24 @@ class CollectedInfo(BaseModel):
             constraints["search_query"] = tc.previous_products[0]
 
         return constraints
+
+
+class ConversationSession(BaseModel):
+    """
+    Single source of truth for all conversation state.
+
+    Replaces the previous pattern of passing 5 separate dicts/sets
+    (history, collected_info, asked_slots, answered_slots, slot_attempts)
+    through the pipeline. Now everything lives in one model.
+    """
+
+    id: str = ""
+    history: List[Dict[str, str]] = Field(default_factory=list)
+    collected_info: CollectedInfo = Field(default_factory=CollectedInfo)
+    asked_slots: Set[str] = Field(default_factory=set)
+    answered_slots: Set[str] = Field(default_factory=set)
+    slot_attempts: Dict[str, int] = Field(default_factory=dict)
+    last_planned_slot: Optional[str] = None
 
 
 def _normalize_use_case(value: str) -> str:

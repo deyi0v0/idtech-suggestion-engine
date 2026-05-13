@@ -22,6 +22,7 @@ from typing import Any, Dict, List, Optional, Set
 from ..engine.lead_service import LeadService
 from ..engine.state_machine import (
     CollectedInfo,
+    ConversationSession,
     ConversationState,
     determine_next_state,
     state_order,
@@ -56,51 +57,54 @@ class ChatService:
     7. Determines if we should transition to recommendation / lead capture / handoff
     8. Builds and returns the final ChatResponse
 
-    Owns NO logic itself — all concerns are delegated to dedicated services.
+    Mutates the provided ConversationSession in-place — the router
+    simply saves the session afterward.
     """
 
     def process_message(
         self,
         message: str,
-        history: List[Dict[str, str]],
-        collected_info: Optional[Dict[str, Any]] = None,
-        asked_slots: Optional[Set[str]] = None,
-        answered_slots: Optional[Set[str]] = None,
-        slot_attempts: Optional[Dict[str, int]] = None,
+        session: ConversationSession,
     ) -> ChatResponse:
         """
-        Main entry point: process a user message and return a response.
+        Process a user message and return a response.
 
         Args:
             message: The user's current message.
-            history: Previous message exchange history.
-            collected_info: Structured data accumulated from previous turns.
-            asked_slots: Set of slot ids that have been asked.
-            answered_slots: Set of slot ids that are answered.
-            slot_attempts: Dict of slot_id -> attempt count.
+            session: Mutable deep copy of the conversation session.
+                     Mutated in-place — caller must save afterward.
         """
         # ── 0. Early exit: pricing keywords ──
         if PricingDetector.detect(message):
             return PricingDetector.build_response()
 
         # ── Initialize state from session ──
-        collected = CollectedInfo()
-        if collected_info:
-            collected.merge(collected_info)
-
-        _asked: Set[str] = asked_slots if asked_slots is not None else set()
-        _answered: Set[str] = answered_slots if answered_slots is not None else set()
-        _attempts: Dict[str, int] = slot_attempts if slot_attempts is not None else {}
+        collected = session.collected_info
+        _asked = session.asked_slots
+        _answered = session.answered_slots
+        _attempts = session.slot_attempts
 
         # ── 1. Volume/ticket deterministic parsing ──
         parsed_volume = VolumeTicketParser.parse(message)
+        parsed_volume_data: Dict[str, Any] = {}
         if parsed_volume:
             collected.merge(parsed_volume)
+            parsed_volume_data = dict(parsed_volume)  # copy for new_info
             InfoNormalizer.sync_answered_slots(collected, _answered)
 
         # ── 2. Pick the next question slot ──
         next_slot = SlotPlanner.select_next_slot(collected, _asked, _answered, _attempts)
         pre_slot_state = determine_next_state(collected)
+
+        # Helper: persist user message to history before early-returning
+        def _early_return(
+            new_info_extra: Dict[str, Any]
+        ) -> ChatResponse:
+            """Persist user message to history, then call transition."""
+            session.history.append({"role": "user", "content": message})
+            return self._transition_to_recommendation_or_complete(
+                collected, _answered, new_info=parsed_volume_data | new_info_extra,
+            )
 
         # If the planner wants lead_capture but we haven't shown the recommendation yet,
         # intercept and show it first.
@@ -109,26 +113,32 @@ class ChatService:
             and next_slot.state == ConversationState.LEAD_CAPTURE
             and pre_slot_state == ConversationState.RECOMMENDING
         ):
-            return self._transition_to_recommendation_or_complete(
-                collected, _answered, new_info={}
-            )
+            return _early_return({})
 
         # No more slots to ask — transition to recommendation or lead capture
         if next_slot is None:
-            return self._transition_to_recommendation_or_complete(
-                collected, _answered, new_info={}
-            )
+            return _early_return({})
 
         SlotPlanner.record_asked(next_slot.id, _asked, _attempts)
 
-        # ── 3. Call the LLM with a slot-constrained prompt and tool ──
+        # ── 3. Predict next slot so the LLM can craft a natural transition ──
+        # Temporarily mark current slot as answered to see what comes next.
+        next_topic_hint = None
+        if next_slot:
+            temp_answered = set(_answered) | {next_slot.id}
+            after = SlotPlanner.select_next_slot(collected, _asked, temp_answered, _attempts)
+            if after:
+                next_topic_hint = after.prompt_hint
+
+        # ── 4. Call the LLM with a slot-constrained prompt and tool ──
         llm_result = process_turn(
             message=message,
-            history=history,
+            history=session.history,
             state=next_slot.state.value,
             collected_info=collected.model_dump(exclude_none=True),
             planned_slot_id=next_slot.id,
             slot_prompt_hint=next_slot.prompt_hint,
+            next_topic_hint=next_topic_hint,
         )
 
         # ── 4. Extract info the LLM captured ──
@@ -152,18 +162,27 @@ class ChatService:
         suggested_choices = llm_result.get("suggested_choices", [])
 
         raw_reply = llm_result.get("reply", "") or ""
+        slot_just_answered = next_slot.id in _answered
+        # Peek ahead: if this slot was answered, what would the next slot be?
+        # Used by the Enforcer to craft a transition message instead of
+        # the bland "Got it, thanks!" fallback.
+        next_slot_id_after = None
+        if slot_just_answered:
+            after = SlotPlanner.select_next_slot(collected, _asked, _answered, _attempts)
+            if after:
+                next_slot_id_after = after.id
         reply, final_choices, choice_validation = SlotContractEnforcer.enforce(
             next_slot,
             raw_reply,
             suggested_choices,
             choice_validation,
+            slot_just_answered=slot_just_answered,
+            next_slot_id=next_slot_id_after,
         )
 
         # ── 6. Determine next state and handle transitions ──
         next_state = determine_next_state(collected)
 
-        # If this slot pushed us past QUALIFYING into RECOMMENDING territory,
-        # transition to the recommendation/lead-capture flow.
         if (
             state_order(next_slot.state) < state_order(ConversationState.RECOMMENDING)
             and state_order(next_state) >= state_order(ConversationState.RECOMMENDING)
@@ -176,15 +195,21 @@ class ChatService:
                 transition.accepted_slot = accepted_slot
                 transition.choice_validation_result = choice_validation
                 return transition
-            # Fall through — keep asking
             next_state = next_slot.state
 
-        # If the state machine says we've moved on but the slot planner hasn't,
-        # signal the override to the frontend.
         if next_state != next_slot.state:
             new_info["__state_override"] = next_state.value
 
-        # ── 7. Build debug trace ──
+        # ── 7. Persist message history into session ──
+        session.history.append({"role": "user", "content": message})
+        if reply.strip():
+            session.history.append({"role": "assistant", "content": reply})
+        session.last_planned_slot = next_slot.id
+
+        # ── 8. Print full conversation to console for debugging ──
+        self._print_conversation(session, reply)
+
+        # ── 9. Build debug trace and response ──
         debug = DebugTrace(
             turn_id=str(uuid.uuid4()),
             final_response_type="question",
@@ -217,12 +242,6 @@ class ChatService:
         """
         Determine whether to show a recommendation, go to lead capture,
         or complete the conversation.
-
-        Decision tree:
-        - Have basics (vertical + indoor_outdoor) + some technical data? → product match + recommendation
-        - No match found? → offer specialist connection
-        - Already in lead capture phase? → ask for missing fields or finalize
-        - Fallback → start lead capture
         """
         tech_answered = any(
             sid in answered_slots
@@ -295,6 +314,19 @@ class ChatService:
         )
 
     @staticmethod
+    def _print_conversation(session: ConversationSession, latest_reply: str) -> None:
+        """Print the full conversation history to console for debugging."""
+        print("\n" + "=" * 60)
+        print("  FULL CONVERSATION")
+        print("=" * 60)
+        for msg in session.history:
+            role_tag = msg.get("role", "?").upper()
+            content = msg.get("content", "")
+            if content.strip():
+                print(f"  [{role_tag}] {content}")
+        print("=" * 60 + "\n")
+
+    @staticmethod
     def _get_ui_actions(state: ConversationState) -> List[str]:
         """Return UI-action hints for the frontend based on conversation state."""
         if state == ConversationState.LEAD_CAPTURE:
@@ -306,6 +338,7 @@ class ChatService:
 
 # ── Singleton factory ──
 _service_instance = ChatService()
+
 
 def get_chat_service() -> ChatService:
     return _service_instance

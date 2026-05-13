@@ -66,14 +66,25 @@ class InfoNormalizer:
 
     @staticmethod
     def _clean_section(section: str, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Clean a section dict, keeping only known fields."""
+        """Clean a section dict, keeping only known fields. Normalizes
+        CHOICE slot values to canonical form."""
         allowed = InfoNormalizer.KNOWN_FIELDS.get(section, set())
         result: Dict[str, Any] = {}
         for k, v in data.items():
             if k in allowed:
-                result[k] = v
+                result[k] = InfoNormalizer._normalize_field_value(section, k, v)
             # else: silently ignore unknown field
         return result
+
+    @staticmethod
+    def _normalize_field_value(section: str, field: str, value: Any) -> Any:
+        """If a CHOICE slot maps to this section.field, canonicalize the value."""
+        from ..engine.slot_planner import SLOT_BY_ID, normalize_choice
+        dotted = f"{section}.{field}"
+        for slot_id, slot_def in SLOT_BY_ID.items():
+            if slot_def.path == dotted and slot_def.allowed_choices:
+                return normalize_choice(slot_id, value)
+        return value
 
     @staticmethod
     def sync_answered_slots(
