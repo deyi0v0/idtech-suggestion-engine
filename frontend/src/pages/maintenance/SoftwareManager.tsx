@@ -98,6 +98,15 @@ export default function SoftwareManager() {
                     Add Software
                 </ColorButton>
                 <ColorButton
+                    className="mr-1"
+                    color="var(--back-gray)"
+                    textColor="black"
+                    disabled={selectedId === null}
+                    onClick={() => selectedDevice && navigate(`/admin/software/edit/${selectedDevice.name}`)}
+                >
+                    Rename Software
+                </ColorButton>
+                <ColorButton
                     color="var(--warning-red)"
                     disabled={selectedId === null}
                     onClick={() => setShowModal(true)}

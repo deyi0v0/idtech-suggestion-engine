@@ -1,41 +1,32 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import ColorButton from "./components/ColorButton";
 import FormField from "./components/FormField";
 
 type SoftwareForm = {
-    software_name: string;
+    name: string;
 };
 
 export default function EditSoftware() {
     const navigate = useNavigate();
-    const [form, setForm] = useState<SoftwareForm>({
-        software_name: "",
-    });
+    const { name } = useParams<{ name: string }>();
+    const [form, setForm] = useState<SoftwareForm>({ name: name ?? "" });
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    function setField(key: keyof SoftwareForm) {
-        return (value: string) => setForm((prev) => ({ ...prev, [key]: value }));
-    }
-
     async function handleSubmit() {
-        if (!form.software_name.trim()) {
+        if (!form.name.trim()) {
             setError("Software Name is required.");
             return;
         }
         setError(null);
         setSubmitting(true);
         try {
-            const payload = {
-                name: form.software_name.trim(),
-            };
-            const res = await fetch("http://localhost:8000/api/maintenance/software/", {
-                method: "POST",
+            const res = await fetch(`http://localhost:8000/api/maintenance/software/${name}`, {
+                method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
+                body: JSON.stringify({ name: form.name.trim() }),
             });
-            console.log(res);
             if (!res.ok) {
                 const data = await res.json().catch(() => ({}));
                 throw new Error(data.detail ?? `Server error: ${res.status}`);
@@ -48,32 +39,37 @@ export default function EditSoftware() {
     }
 
     return (
-        <div className="flex flex-col p-0 text-black grow gap-4 min-h-0">
-            <div>
-                <h1 className="font-semibold text-2xl">Add Software</h1>
+        <div className="flex flex-col p-0 text-black grow min-h-0">
+            <div className="mb-4">
+                <h1 className="font-semibold text-2xl">Edit Software</h1>
                 <p className="text-gray-600 text-sm">
-                    To add software to the pool of software that the AI can recommend, fill in the
-                    following fields and press "Add Software."
+                    Update the name of this software entry and press "Save Changes."
                 </p>
             </div>
 
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3 flex-1 overflow-y-auto min-h-0 pb-4">
                 <h2 className="font-semibold text-xl">Software Details</h2>
-                <FormField label="Software Name" value={form.software_name} onChange={setField("software_name")} required />
+                <FormField
+                    label="Software Name"
+                    value={form.name}
+                    onChange={(v) => setForm({ name: v })}
+                    required
+                />
             </div>
 
-            {error && <p className="text-red-500 text-sm">{error}</p>}
+            {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 pt-2 shrink-0">
                 <ColorButton
                     color="var(--confirm-green)"
                     onClick={handleSubmit}
                     disabled={submitting}
                 >
-                    Submit
+                    Save Changes
                 </ColorButton>
                 <ColorButton
-                    color="var(--warning-red)"
+                    color="var(--back-gray)"
+                    textColor="black"
                     onClick={() => navigate("/admin/software")}
                     disabled={submitting}
                 >
