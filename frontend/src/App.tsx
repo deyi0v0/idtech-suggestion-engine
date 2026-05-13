@@ -28,7 +28,7 @@ function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const [disabled, setDisabled] = useState(false);
-  const [isLightTheme, setIsLightTheme] = useState(false);
+  const [isLightTheme, setIsLightTheme] = useState(true);
 
   // State machine tracking — accumulated structured data and current phase
   const [collectedInfo, setCollectedInfo] = useState<Record<string, unknown>>({});
