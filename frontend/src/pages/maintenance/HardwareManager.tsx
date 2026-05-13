@@ -116,7 +116,7 @@ export default function HardwareManager() {
                     color="var(--back-gray)"
                     textColor="black"
                     disabled={selectedId === null}
-                    onClick={() => navigate} // TODO: navigate to the edit page once implemented
+                    onClick={() => navigate(`/admin/hardware/edit/${selectedDevice?.model_name}`)} // TODO: navigate to the edit page once implemented
                 >
                     View/Edit Details
                 </ColorButton>

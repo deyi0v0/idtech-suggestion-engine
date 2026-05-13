@@ -4,9 +4,10 @@ type FormFieldProps = {
     onChange: (value: string) => void;
     required?: boolean;
     placeholder?: string;
+    disabled?: boolean;
 };
 
-export default function FormField({ label, value, onChange, required, placeholder }: FormFieldProps) {
+export default function FormField({ label, value, onChange, required, placeholder, disabled }: FormFieldProps) {
     return (
         <div className="grid grid-cols-[180px_1fr] items-center gap-x-4">
             <label className="text-right text-sm text-gray-700">
@@ -18,7 +19,13 @@ export default function FormField({ label, value, onChange, required, placeholde
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
                 placeholder={placeholder}
-                className="bg-gray-100 rounded px-3 py-2 text-sm w-full focus:outline-none focus:ring-1 focus:ring-gray-300"
+                disabled={disabled}
+                className={[
+                    "rounded px-3 py-2 text-sm w-full focus:outline-none focus:ring-1 focus:ring-gray-300",
+                    disabled
+                        ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                        : "bg-gray-100",
+                ].join(" ")}
             />
         </div>
     );

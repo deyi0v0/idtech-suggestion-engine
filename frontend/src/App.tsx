@@ -5,6 +5,8 @@ import HardwareManager from "./pages/maintenance/HardwareManager";
 import AddHardware from "./pages/maintenance/AddHardware";
 import SoftwareManager from "./pages/maintenance/SoftwareManager";
 import AddSoftware from './pages/maintenance/AddSoftware';
+import EditHardware from './pages/maintenance/EditHardware';
+import EditSoftware from './pages/maintenance/EditSoftware';
 
 function App() {
   return (
@@ -23,8 +25,10 @@ function App() {
             <Route index element={<HardwareManager />} />
             <Route path="hardware" element={<HardwareManager />} />
             <Route path="hardware/add" element={<AddHardware />} />
+            <Route path="hardware/edit/:name" element={<EditHardware />} />
             <Route path="software" element={<SoftwareManager />} />
             <Route path="software/add" element={<AddSoftware />} />
+            <Route path="software/edit/:name" element={<EditSoftware />} />
         </Route>
         {/* <Route path="/admin/hardware" element={<HardwareManager />} />
         <Route path="/admin/software" element={<SoftwareManager />} />
