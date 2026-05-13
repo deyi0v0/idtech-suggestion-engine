@@ -24,13 +24,16 @@ INSTRUCTIONS:
 - If the user already provided information relevant to this topic, call
   `{tool_name}` to capture it.
 
-CRITICAL RULES:
+CRITICAL RULES (follow them in order):
 1. If the user's message contains new information about this topic,
    call `{tool_name}` first to capture it.
-2. Then (or if no info to capture) ask your question about the planned topic.
-3. If the question has structured answers, call `present_choices` with the
+2. If the user volunteered information beyond the planned topic
+   (e.g. mentioned environment during vertical, or volume during card types),
+   call `capture_additional_info` to capture it.
+3. Ask your one question about the planned topic.
+4. If the question has structured answers, call `present_choices` with the
    slot "{slot_id}".
-4. Always write your conversational reply in the message content first,
+5. Always write your conversational reply in the message content first,
    then call tools.
 
 {known_summary}
@@ -166,6 +169,52 @@ PRESENT_CHOICES_TOOL = {
 }
 
 
+CAPTURE_ADDITIONAL_INFO_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "capture_additional_info",
+        "description": (
+            "Capture any information the user volunteers beyond the current planned topic. "
+            "Use this if the user mentions details about their business, environment, "
+            "technical needs, or contact info that you haven't been specifically asked about yet. "
+            "Do NOT use this for the primary planned topic \u2014 use the dedicated extract_* "
+            "tool for that. "
+            "Examples: if user says 'it will be outdoors' during the vertical question, "
+            "use this with section='environment', field='indoor_outdoor', value='outdoor'. "
+            "If user mentions 'about 5000 transactions a month' in any context, "
+            "use this with section='transaction_profile', field='monthly_volume', value='5000'."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "section": {
+                    "type": "string",
+                    "enum": ["environment", "transaction_profile", "technical_context", "lead"],
+                    "description": "The section this information belongs to."
+                },
+                "field": {
+                    "type": "string",
+                    "description": (
+                        "The field name within the section. Use snake_case, e.g. "
+                        "'indoor_outdoor', 'card_types', 'needs_pin', 'monthly_volume', "
+                        "'name', 'email'."
+                    )
+                },
+                "value": {
+                    "type": "string",
+                    "description": (
+                        "The value for this field. Use a clear string representation "
+                        "(e.g. 'outdoor', '5000', 'contactless', 'John')."
+                    )
+                }
+            },
+            "required": ["section", "field", "value"],
+            "additionalProperties": False
+        }
+    }
+}
+
+
 def build_tools_for_planned_slot(slot_id: Optional[str]) -> List[Dict[str, Any]]:
     """
     Build the tool list for a given planned slot.
@@ -251,7 +300,7 @@ def build_tools_for_planned_slot(slot_id: Optional[str]) -> List[Dict[str, Any]]
         },
     }
 
-    return [extraction_tool, PRESENT_CHOICES_TOOL]
+    return [extraction_tool, CAPTURE_ADDITIONAL_INFO_TOOL, PRESENT_CHOICES_TOOL]
 
 
 def build_known_summary(collected_info: Dict[str, Any] | None) -> str:

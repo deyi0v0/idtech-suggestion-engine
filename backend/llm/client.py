@@ -199,6 +199,21 @@ class LLMClient:
                                     "content": "Rejected: choices do not match the expected vocabulary for this slot.",
                                 })
                     tool_was_called = True
+                elif fname == "capture_additional_info":
+                    if isinstance(args, dict):
+                        section = args.get("section")
+                        field = args.get("field")
+                        value = args.get("value")
+                        if section and field and value is not None:
+                            converted = _convert_additional_value(field, value)
+                            additional_section = extracted_info.setdefault(section, {})
+                            additional_section[field] = converted
+                    tool_was_called = True
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "content": "Information captured successfully.",
+                    })
                 else:
                     any_unknown = True
                     messages.append({
@@ -246,6 +261,40 @@ class LLMClient:
 
 
 _client_instance = LLMClient()
+
+
+def _convert_additional_value(field: str, value: str) -> Any:
+    """
+    Convert string values from `capture_additional_info` to appropriate types
+    for known fields. The LLM sends everything as strings, but some fields
+    expect int, float, bool, or list types.
+    """
+    # Integer fields
+    if field in ("monthly_volume",):
+        try:
+            return int(value.replace(",", ""))
+        except (ValueError, AttributeError):
+            return value
+    # Float fields
+    if field in ("average_ticket",):
+        try:
+            return float(value.replace("$", "").replace(",", ""))
+        except (ValueError, AttributeError):
+            return value
+    # Boolean fields
+    if field in ("needs_pin", "is_standalone", "needs_display"):
+        lower = value.strip().lower()
+        if lower in ("yes", "true", "y", "1"):
+            return True
+        if lower in ("no", "false", "n", "0"):
+            return False
+        return value
+    # List fields (comma-separated)
+    if field in ("card_types", "previous_products"):
+        parts = [p.strip() for p in value.split(",") if p.strip()]
+        return parts if parts else value
+    # Default: keep as string
+    return value
 
 
 def process_turn(
