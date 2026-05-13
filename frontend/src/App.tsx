@@ -3,10 +3,16 @@ import SampleChat from "./components/SampleChat"
 import AdminLayout from './pages/maintenance/AdminLayout';
 import HardwareManager from "./pages/maintenance/HardwareManager";
 import AddHardware from "./pages/maintenance/AddHardware";
+import EditHardware from './pages/maintenance/EditHardware';
 import SoftwareManager from "./pages/maintenance/SoftwareManager";
 import AddSoftware from './pages/maintenance/AddSoftware';
-import EditHardware from './pages/maintenance/EditHardware';
 import EditSoftware from './pages/maintenance/EditSoftware';
+import CategoryManager from './pages/maintenance/CategoryManager';
+import AddCategory from './pages/maintenance/AddCategory';
+import EditCategory from './pages/maintenance/EditCategory';
+import UseCaseManager from './pages/maintenance/UseCaseManager';
+import AddUseCase from './pages/maintenance/AddUseCase';
+import EditUseCase from './pages/maintenance/EditUseCase';
 
 function App() {
   return (
@@ -29,6 +35,12 @@ function App() {
             <Route path="software" element={<SoftwareManager />} />
             <Route path="software/add" element={<AddSoftware />} />
             <Route path="software/edit/:name" element={<EditSoftware />} />
+            <Route path="categories" element={<CategoryManager />} />
+            <Route path="categories/add" element={<AddCategory />} />
+            <Route path="categories/edit/:name" element={<EditCategory />} />
+            <Route path="use-cases" element={<UseCaseManager />} />
+            <Route path="use-cases/add" element={<AddUseCase />} />
+            <Route path="use-cases/edit/:name" element={<EditUseCase />} />
         </Route>
         {/* <Route path="/admin/hardware" element={<HardwareManager />} />
         <Route path="/admin/software" element={<SoftwareManager />} />

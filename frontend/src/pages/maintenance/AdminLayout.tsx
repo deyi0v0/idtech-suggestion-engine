@@ -21,19 +21,25 @@ export default function AdminLayout() {
 
 function DashboardNavbar() {
     return (
-        <nav className="flex justify-between pl-5 m-0 pr-5 bg-[#02AF6E] w-full min-h-16 items-end border-b-2 border-[#00955D] shrink-0">
-            <div className="flex items-end">
-                <div className="pb-2">
+        <nav className="flex justify-between pl-5 m-0 pr-5 bg-[#02AF6E] w-full min-h-12 items-center border-b-2 border-[#00955D] shrink-0">
+            <div className="flex items-center">
+                <div className="">
                     <IDTechLogo />
                 </div>
-                <h1 className="italic font-semibold text-4xl text-white p-0 pl-3">Admin Portal</h1>
+                <h1 className="italic font-semibold text-2xl text-white p-0 pl-3">Admin Portal</h1>
             </div>
             <div className="flex justify-between">
-                <a href="/admin/hardware" className="pr-2 text-white text-xl hover:text-gray-900">
+                <a href="/admin/hardware" className="pr-2 text-white text-xl hover:text-gray-200">
                     Hardware
                 </a>
-                <a href="/admin/software" className="text-white text-xl hover:text-gray-900">
+                <a href="/admin/software" className="pr-2 text-white text-xl hover:text-gray-200">
                     Software
+                </a>
+                <a href="/admin/categories" className="pr-2 text-white text-xl hover:text-gray-200">
+                    Categories
+                </a>
+                <a href="/admin/use-cases" className="text-white text-xl hover:text-gray-200">
+                    Use Cases
                 </a>
             </div>
         </nav>

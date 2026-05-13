@@ -32,8 +32,7 @@ export default function DataTable<T extends { id: number, is_active?: boolean }>
                     </tr>
                 </thead>
                 <tbody>
-                    {data.map((row, index) => {
-                        if ("is_active" in row && row.is_active === false) return null;
+                    {data.filter((row) => !("is_active" in row) || row.is_active === true).map((row, index) => {
                         const isSelected = row.id === selectedId;
                         return (
                             <tr
@@ -44,8 +43,8 @@ export default function DataTable<T extends { id: number, is_active?: boolean }>
                                     isSelected
                                         ? "row-selected"
                                         : index % 2 === 0
-                                        ? "bg-white text-gray-800 hover:bg-gray-50"
-                                        : "bg-gray-50 text-gray-800 hover:bg-gray-100",
+                                        ? "bg-white text-gray-800 hover:bg-gray-200"
+                                        : "bg-gray-50 text-gray-800 hover:bg-gray-200",
                                 ].join(" ")}
                             >
                                 {columns.map((col) => (

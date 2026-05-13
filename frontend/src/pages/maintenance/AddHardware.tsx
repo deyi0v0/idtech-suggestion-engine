@@ -138,6 +138,7 @@ export default function AddHardware() {
                 </ColorButton>
                 <ColorButton
                     color="var(--back-gray)"
+                    textColor="black"
                     onClick={() => navigate("/admin")}
                     disabled={submitting}
                 >
