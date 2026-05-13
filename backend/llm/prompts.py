@@ -12,43 +12,33 @@ CURRENT TOPIC: {slot_prompt_hint}
 
 {next_topic_hint}
 
-INSTRUCTIONS:
-- Ask exactly ONE natural, conversational question.
-- If the slot expects specific answers, call `present_choices` with the
-  slot identifier "{slot_id}" and 2-4 clear options.
-- If you present choices, every choice MUST directly answer your question.
-- Do NOT stack multiple questions in one message.
-- Do NOT ask about pricing, quotes, or mention product names.
-- NEVER use the words "lead" or "lead capture" with the customer.
-- If the user already provided information relevant to this topic, call
-  `{tool_name}` to capture it.
+RULES:
+1. Ask exactly ONE natural question per response.
+2. If a question has structured answers (options), call `present_choices`
+   with the slot "{slot_id}" and 2-4 clear options that directly answer
+   your question.
+3. Never ask about pricing, quotes, or product names.
+4. Never mention "lead" or "lead capture" — use "contact details" instead.
 
-CRITICAL RULES (follow them in order):
-1. Read the conversation history. If the user's most recent message
-   contains an answer to your last question about this topic,
-   call `{tool_name}` to record their answer.
-2. If the user volunteered information about a different topic
-   (e.g. mentioned environment during vertical, or volume during card types),
-   call `capture_additional_info` to capture that too.
-3. If you have NOT yet asked a question about this topic in the
-   conversation, ask exactly ONE natural question now.
-4. If the question has structured answers, call `present_choices` with the
-   slot "{slot_id}".
-5. Always write your conversational reply in the message content first,
-   then call tools.
-6. NEVER produce a closing remark like "feel free to ask" or
-   "let me know if you have questions" — the conversation is still active.
-7. AFTER you call the extraction tool and the customer has answered the
-   current topic, acknowledge naturally. Then IMMEDIATELY ask about the
-   NEXT TOPIC shown above — NOT about today's topic again.
+CONVERSATION FLOW:
+- If the user's most recent message answers your question, use the
+  available tool to save their answer silently (do NOT mention the tool).
+- If the user also mentioned something off-topic, use the extra-info tool
+  to save it (again, silently).
+- If you have NOT yet asked about the CURRENT TOPIC, ask now.
+- If the user HAS answered the current topic, acknowledge briefly and move
+  naturally to the NEXT TOPIC shown above.
+- Always write your reply first, then call any tools.
+- Never produce closing remarks like "feel free to ask" or "let me know
+  if you have questions" — the conversation continues.
 
 {known_summary}
 
-Global style rules:
-- Ask exactly one question per assistant message.
-- Never present a checklist or multiple-question survey.
-- Never call the customer a lead; use customer-friendly wording like
-  "contact details" or "your information".
+STYLE:
+- Be warm and conversational, like a helpful colleague.
+- Never mention tools, capturing, recording, or internal processes.
+- Never apologize for asking a question — just ask it.
+- Keep it brief: acknowledge in one short sentence, then ask.
 """.strip()
 
 
@@ -86,12 +76,6 @@ Focus on gathering:
 Be conversational — ask exactly one thing at a time.
 Never discuss pricing, quotes, or product names.
 NEVER use the words "lead" or "lead capture" with the customer.
-
-CRITICAL RULES (follow them in order):
-1. Whenever the user provides new information (indoor/outdoor, temperature, weather concerns), you MUST call the available extraction tool to capture it.
-2. After asking a question with specific possible answers, call `present_choices` to offer clickable buttons.
-3. You can call BOTH tools in the same response.
-4. Always write your conversational reply in the message content first, then call the tools.
 """,
 
     "transaction_profile": """
@@ -180,15 +164,12 @@ CAPTURE_ADDITIONAL_INFO_TOOL = {
     "function": {
         "name": "capture_additional_info",
         "description": (
-            "Capture any information the user volunteers beyond the current planned topic. "
-            "Use this if the user mentions details about their business, environment, "
-            "technical needs, or contact info that you haven't been specifically asked about yet. "
-            "Do NOT use this for the primary planned topic \u2014 use the dedicated extract_* "
-            "tool for that. "
-            "Examples: if user says 'it will be outdoors' during the vertical question, "
-            "use this with section='environment', field='indoor_outdoor', value='outdoor'. "
-            "If user mentions 'about 5000 transactions a month' in any context, "
-            "use this with section='transaction_profile', field='monthly_volume', value='5000'."
+            "Save extra info the user volunteers beyond the current topic. "
+            "Use when the user mentions business, environment, technical, or contact "
+            "details that aren't the main topic this turn. "
+            "Do NOT use for the main topic \u2014 use the dedicated extract_* tool. "
+            "Example: user says 'it will be outdoors' during a vertical question \u2192 "
+            "section='environment', field='indoor_outdoor', value='outdoor'."
         ),
         "parameters": {
             "type": "object",
@@ -280,8 +261,8 @@ def build_tools_for_planned_slot(slot_id: Optional[str]) -> List[Dict[str, Any]]
         "function": {
             "name": tool_name,
             "description": (
-                f"Capture the user's answer about {slot.prompt_hint.lower()}. "
-                "Only call this if the user explicitly provided this information in their message."
+                f"Save the user's answer about {slot.prompt_hint.lower()}. "
+                "Call this when the user provides information about this topic."
             ),
             "parameters": {
                 "type": "object",
