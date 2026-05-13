@@ -1,4 +1,3 @@
-// TODO: Configure Vite with React plugin.
 // Proxy /api requests to http://localhost:8000 so the frontend can call the backend without CORS issues in dev.
 
 import { defineConfig } from "vite";
@@ -13,6 +12,11 @@ export default defineConfig({
     tailwindcss(),
   ],
   server: {
+    host: '0.0.0.0',
+    port: 5173,
+    watch: {
+      usePolling: true
+    },
     proxy: {
       "/api": {
         target: proxyTarget,

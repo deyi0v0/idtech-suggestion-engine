@@ -44,6 +44,25 @@ services:
       - ./frontend:/app
       - /app/node_modules
     command: npm run dev -- --host
+    develop:
+      watch:
+        # Sync source files instantly — no rebuild
+        - action: sync
+          path: ./src
+          target: /app/src
+
+        # Sync public assets
+        - action: sync
+          path: ./public
+          target: /app/public
+
+        # Rebuild image when dependencies change
+        - action: rebuild
+          path: package.json
+
+        # Rebuild on config changes
+        - action: rebuild
+          path: vite.config.ts
 
 volumes:
   pgdata:
