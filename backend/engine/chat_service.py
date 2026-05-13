@@ -77,7 +77,9 @@ class ChatService:
         ]
         if any(marker in lowered for marker in closing_markers):
             return False
-        return "?" in text
+        if text.count("?") != 1:
+            return False
+        return text.strip().endswith("?")
 
     @staticmethod
     def _fallback_question_for_slot(slot: SlotDef) -> str:
@@ -100,6 +102,33 @@ class ChatService:
     @staticmethod
     def _build_slot_question(slot: SlotDef) -> str:
         return ChatService._fallback_question_for_slot(slot)
+
+    @staticmethod
+    def _enforce_ask_slot_contract(
+        slot: SlotDef,
+        reply: str,
+        suggested_choices: List[str],
+        choice_validation: str,
+    ) -> Tuple[str, List[str], str]:
+        final_reply = reply
+        final_choices: List[str] = []
+        final_validation = choice_validation
+
+        if not ChatService._is_valid_question_reply(final_reply):
+            final_reply = ChatService._build_slot_question(slot)
+            final_validation = "contract_reply_fallback"
+
+        if slot.parser.value == "free_text":
+            return final_reply, [], final_validation
+
+        if suggested_choices and choice_validation == "valid":
+            final_choices = list(suggested_choices)[:4]
+            return final_reply, final_choices, final_validation
+
+        final_choices = list(slot.fallback_choices or [])[:4]
+        if final_validation in ("none", "rejected_mismatch", "rejected_vocab"):
+            final_validation = "contract_choices_fallback"
+        return final_reply, final_choices, final_validation
 
     @staticmethod
     def _detect_pricing(message: str) -> bool:
@@ -204,8 +233,6 @@ class ChatService:
         finally:
             db.close()
 
-    # ── New: deterministic parsing + slot planner ────────────────────────
-
     @staticmethod
     def _run_deterministic_parsers(
         message: str,
@@ -217,7 +244,6 @@ class ChatService:
         """
         result: Dict[str, Any] = {}
 
-        # Always try volume/ticket parser (can fill transaction_profile fields)
         vt = parse_volume_ticket(message)
         if vt:
             if "monthly_volume" in vt and vt["monthly_volume"] is not None:
@@ -225,7 +251,6 @@ class ChatService:
             if "average_ticket" in vt and vt["average_ticket"] is not None:
                 result.setdefault("transaction_profile", {})["average_ticket"] = vt["average_ticket"]
 
-        # If there's a planned slot, try its specific parser
         if planned_slot_id:
             slot = SLOT_BY_ID.get(planned_slot_id)
             if slot:
@@ -233,8 +258,6 @@ class ChatService:
                 if parsed is not None:
                     ChatService._apply_parsed_to_result(result, slot, parsed)
 
-        # Cross-slot heuristics: extract high-value qualification signals even when
-        # they are not the currently planned slot.
         inferred = ChatService._infer_qualification_fields(message)
         if inferred:
             ChatService._deep_merge(result, inferred)
@@ -490,7 +513,6 @@ class ChatService:
             # else: silently ignore unknown field
         return result
 
-    # ── Main entry point ─────────────────────────────────────────────────
 
     def process_message(
         self,
@@ -513,21 +535,17 @@ class ChatService:
             slot_attempts: Dict of slot_id → attempt count.
         """
 
-        # ── Detect pricing ──
         if self._detect_pricing(message):
             return self._build_pricing_response()
 
-        # ── Build collected ──
         collected = CollectedInfo()
         if collected_info:
             collected.merge(collected_info)
 
-        # ── Initialize planner metadata ──
         _asked: Set[str] = asked_slots if asked_slots is not None else set()
         _answered: Set[str] = answered_slots if answered_slots is not None else set()
         _attempts: Dict[str, int] = slot_attempts if slot_attempts is not None else {}
 
-        # ── 1. Run deterministic parsers on user input ──
         parsed_info = self._run_deterministic_parsers(message, None)
         parser_succeeded = False
         parser_used: Optional[str] = None
@@ -541,11 +559,10 @@ class ChatService:
             collected.merge(parsed_info)
             self._sync_answered_slots_from_collected(collected, _answered)
 
-        # ── 2. Select next slot ──
         next_slot = SlotPlanner.select_next_slot(collected, _asked, _answered, _attempts)
         pre_slot_state = determine_next_state(collected)
 
-        # If recommendation has not been shown yet, do not enter lead-capture slots.
+        # If recommendation has not been shown yet, do not enter lead-capture slots
         if (
             next_slot is not None
             and next_slot.state == ConversationState.LEAD_CAPTURE
@@ -555,16 +572,13 @@ class ChatService:
                 collected, _answered, new_info={}
             )
 
-        # ── 3. No more slots? Transition to recommendation or handoff ──
         if next_slot is None:
             return self._transition_to_recommendation_or_complete(
                 collected, _answered, new_info={}
             )
 
-        # ── 4. We have a slot — record it as asked ──
         SlotPlanner.record_asked(next_slot.id, _asked, _attempts)
 
-        # ── 5. Try slot-specific deterministic parser ──
         slot_parsed = try_parse_for_slot(message, next_slot.id, next_slot.allowed_choices)
         slot_parser_used: Optional[str] = None
         slot_parser_succeeded = False
@@ -615,7 +629,6 @@ class ChatService:
                 collected, _answered, new_info={}
             )
 
-        # ── 6. Call LLM with slot-bound prompt ──
         llm_result = process_turn(
             message=message,
             history=history,
@@ -625,7 +638,6 @@ class ChatService:
             slot_prompt_hint=next_slot.prompt_hint,
         )
 
-        # ── 7. Merge LLM-extracted info ──
         extracted = llm_result.get("extracted_info", {})
         new_info: Dict[str, Any] = {}
 
@@ -645,20 +657,17 @@ class ChatService:
         accepted_slot = llm_result.get("accepted_slot")
         suggested_choices = llm_result.get("suggested_choices", [])
 
-        final_choices: List[str] = []
-        if next_slot.parser.value == "free_text":
-            final_choices = []
-        elif suggested_choices and choice_validation == "valid":
-            final_choices = list(suggested_choices)
-        elif next_slot.fallback_choices:
-            # Use deterministic fallback choices
-            choice_validation = "fallback" if choice_validation in ("none", "rejected_mismatch", "rejected_vocab") else choice_validation
-            final_choices = list(next_slot.fallback_choices)
+        # Contract-enforced ASK_SLOT output
+        raw_reply = llm_result.get("reply", "") or ""
+        reply, final_choices, choice_validation = self._enforce_ask_slot_contract(
+            next_slot,
+            raw_reply,
+            suggested_choices,
+            choice_validation,
+        )
 
-        # ── 9. Determine next state ──
         next_state = determine_next_state(collected)
 
-        # Intercept: if we should go to RECOMMENDING
         if (state_order(next_slot.state) < state_order(ConversationState.RECOMMENDING) and
             state_order(next_state) >= state_order(ConversationState.RECOMMENDING)):
             transition = self._transition_to_recommendation_or_complete(
@@ -674,12 +683,6 @@ class ChatService:
         if next_state != next_slot.state:
             new_info["__state_override"] = next_state.value
 
-        # Keep the LLM conversational tone, but guard against non-question drift.
-        reply = llm_result.get("reply", "") or ""
-        if not self._is_valid_question_reply(reply):
-            reply = self._fallback_question_for_slot(next_slot)
-
-        # ── 10. Build debug trace ──
         debug = DebugTrace(
             turn_id=str(uuid.uuid4()),
             final_response_type="question",
