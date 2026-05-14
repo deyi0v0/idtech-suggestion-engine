@@ -176,7 +176,6 @@ function App() {
             >
               {isLightTheme ? "Dark Mode" : "Light Mode"}
             </button>
-            <h1 className="text-primary text-center">IDTECH Suggestion Engine</h1>
             <ChatWindow messages={messages} onSend={onSend} isTyping={isTyping} disabled={disabled} />
       <DebugPanel collectedInfo={collectedInfo} nextState={nextState} messageCount={messages.length} />
           </div>

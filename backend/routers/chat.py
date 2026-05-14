@@ -3,7 +3,7 @@ from typing import Any, Dict, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from backend.engine.chat_service import ChatService, get_chat_service
+from backend.agent.loop import process_message
 from backend.engine.conversation_store import ConversationStore, get_conversation_store
 from backend.llm.contracts import ChatResponse
 
@@ -41,14 +41,13 @@ async def create_session(
 @router.post("/chat")
 async def chat_endpoint(
     request: ChatRequest,
-    chat_service: ChatService = Depends(get_chat_service),
     store: ConversationStore = Depends(get_conversation_store),
 ):
     try:
         session_id = store.ensure_session(request.session_id)
         session = store.get_session(session_id)  # deep copy
 
-        response = chat_service.process_message(
+        response = process_message(
             message=request.message,
             session=session,
         )
@@ -57,8 +56,8 @@ async def chat_endpoint(
         payload = response.model_dump(exclude_none=True)
         payload["session_id"] = session_id
 
-        # Session was mutated in-place by process_message (history, slot
-        # planner metadata, collected_info are all updated).
+        # Session was mutated in-place by process_message (history,
+        # collected_info, lead_submitted, etc. are all updated).
         store.save_session(session_id, session)
 
         return payload

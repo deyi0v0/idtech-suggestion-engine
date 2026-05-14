@@ -122,6 +122,13 @@ class ConversationSession(BaseModel):
     Replaces the previous pattern of passing 5 separate dicts/sets
     (history, collected_info, asked_slots, answered_slots, slot_attempts)
     through the pipeline. Now everything lives in one model.
+
+    Fields added for agentic loop:
+    - intent: the classified intent for the current turn
+    - turn_count: how many user turns have occurred
+    - recommended_products: list of product model names shown to the user
+    - lead_submitted: guard against duplicate lead submissions
+    - reasoning_trace: step-by-step agent decision log per turn
     """
 
     id: str = ""
@@ -131,6 +138,13 @@ class ConversationSession(BaseModel):
     answered_slots: Set[str] = Field(default_factory=set)
     slot_attempts: Dict[str, int] = Field(default_factory=dict)
     last_planned_slot: Optional[str] = None
+
+    # ── Agentic loop fields ──
+    intent: Optional[str] = None
+    turn_count: int = 0
+    recommended_products: List[str] = Field(default_factory=list)
+    lead_submitted: bool = False
+    reasoning_trace: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 def _normalize_use_case(value: str) -> str:
