@@ -210,7 +210,23 @@ def process_message(message: str, session: ConversationSession) -> ChatResponse:
         )
 
     if intent == "chitchat":
-        text = "I'm specialized in ID TECH payment hardware — happy to help with any questions in that area! Is there a payment solution you're exploring?"
+        # Build a context-aware redirect based on what's been collected so far
+        collected = session.collected_info
+        if collected.environment.vertical:
+            text = (
+                f"Let's focus on your {collected.environment.vertical} setup. "
+                "I'm here to help find the right payment hardware — "
+                "what specific questions do you have about your deployment?"
+            )
+        elif session.history:
+            text = (
+                "I'm here to help with ID TECH payment hardware. "
+                "Tell me about the kind of payment solution you're looking for, "
+                "and I'll help find the right match."
+            )
+        else:
+            text = "I can help find the right payment hardware for your business. What industry or use case are you working on?"
+
         trace.response_generated("clarification", text)
         session.history.append({"role": "user", "content": message})
         session.history.append({"role": "assistant", "content": text})
