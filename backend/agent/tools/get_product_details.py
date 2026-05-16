@@ -5,11 +5,12 @@ Returns full specs, compatible software, installation docs, and highlights
 for a specific hardware product by model name.
 """
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from ...db.session import SessionLocal
 from ...db.repositories.product_query import ProductRepository
 from ...engine.product_matcher import ProductMatcher
+from ._product_url import get_product_url
 
 
 def get_product_details(model_name: str) -> Dict[str, Any]:
@@ -85,10 +86,24 @@ def get_product_details(model_name: str) -> Dict[str, Any]:
         except Exception:
             pass
 
+        # Build software with datasheet URLs from extra_fields if available
+        software_with_urls: List[Dict[str, Any]] = []
+        for sw_name in software_names:
+            entry: Dict[str, Any] = {"name": sw_name}
+            # Look up datasheet from software extra_fields
+            for sw in matching.software:
+                if sw.name == sw_name and sw.extra_fields:
+                    url = sw.extra_fields.get("datasheet_url") or sw.extra_fields.get("product_url")
+                    if url:
+                        entry["datasheet_url"] = url
+                    break
+            software_with_urls.append(entry)
+
         return {
             "model_name": matching.model_name,
+            "product_url": get_product_url(matching.model_name),
             "technical_specs": specs,
-            "compatible_software": software_names,
+            "compatible_software": software_with_urls,
             "categories": category_names,
             "use_cases": use_case_names,
             "highlights": highlights,

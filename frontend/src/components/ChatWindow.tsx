@@ -46,7 +46,7 @@ export default function ChatWindow({
       {/* Header */}
       <div className="flex items-center gap-2.5 px-4 py-3 border-b-2 shrink-0" style={{ borderColor: "var(--border)" }}>
         <div>
-          <p className="text-2xl font-semibold text-primary">IDTech AI</p>
+          <p className="text-2xl font-semibold text-primary">IDTECH Agent</p>
         </div>
       </div>
 
@@ -55,7 +55,7 @@ export default function ChatWindow({
         {messages.length === 0 ? (
           <div className="flex-1 flex items-center justify-center">
             <p className="text-center text-xl text-secondary">
-              <i>Ask anything about IDTech payment hardware.</i>
+              <i>Ask anything about IDTECH payment hardware.</i>
             </p>
           </div>
         ) : (

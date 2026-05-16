@@ -41,6 +41,7 @@ from .classifier import classify_intent
 from .prompts import build_system_prompt
 from .slot_extractor import extract_slots
 from .tools.registry import get_tools_for_intent
+from .tools._product_url import get_product_url
 from .tools.search_products import search_products as _search_products
 from .tools.get_product_details import get_product_details as _get_product_details
 from .tools.get_solution_content import get_solution_content as _get_solution_content
@@ -103,6 +104,7 @@ def _build_recommendation(products_data: List[Dict[str, Any]]) -> Optional[Recom
             name=p.get("model_name", "Unknown"),
             role="Recommended",
             technical_specs=p.get("key_specs", {}),
+            product_url=p.get("product_url"),
         ))
 
     if not items:
@@ -134,13 +136,23 @@ def _build_recommendation(products_data: List[Dict[str, Any]]) -> Optional[Recom
         for s in (top.get("compatible_software", []) or [])
     ]
 
+    # Fetch installation docs for the top product
+    docs = []
+    try:
+        from ..engine.product_matcher import ProductMatcher
+        fetched = ProductMatcher._fetch_installation_docs(items[0].name)
+        if fetched:
+            docs = [doc.model_dump() for doc in fetched]
+    except Exception:
+        pass
+
     return RecommendationBundle(
         hardware_name=items[0].name,
         hardware_items=items,
         software=software_list,
         highlights=highlights,
         explanation=explanation,
-        installation_docs=[],
+        installation_docs=docs,
     )
 
 

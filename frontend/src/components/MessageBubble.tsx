@@ -77,9 +77,43 @@ export default function MessageBubble({
           <p className="mt-1 text-base font-semibold text-primary">{msg.product.name}</p>
           {msg.product.sku && <p className="mt-1 text-xs text-secondary">SKU: {msg.product.sku}</p>}
           <p className="mt-2 text-sm text-secondary">{msg.product.description}</p>
-          <div className="mt-3">
-            <GenericButton onClick={handleDownloadPDF} disabled={isDownloading} className="btn-accent text-primary">
-              {isDownloading ? "Generating PDF..." : "Download Recommendation PDF"}
+
+          <div className="mt-3 flex flex-col gap-2">
+            {/* Primary: View on ID TECH website */}
+            {msg.product.product_url && (
+              <a
+                href={msg.product.product_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
+              >
+                View on ID TECH website →
+              </a>
+            )}
+
+            {/* Supplementary: Installation/docs links from Confluence */}
+            {msg.product.installation_docs && msg.product.installation_docs.length > 0 && (
+              <div className="mt-1">
+                <p className="text-xs text-secondary mb-1">Installation Guides & Docs:</p>
+                <div className="flex flex-wrap gap-2">
+                  {msg.product.installation_docs.map((doc, i) => (
+                    <a
+                      key={i}
+                      href={doc.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-600 hover:text-blue-800 underline"
+                    >
+                      {doc.title}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Secondary: Download PDF */}
+            <GenericButton onClick={handleDownloadPDF} disabled={isDownloading} className="btn-accent text-primary text-xs mt-1 self-start">
+              {isDownloading ? "Generating PDF..." : "Download PDF"}
             </GenericButton>
           </div>
         </div>

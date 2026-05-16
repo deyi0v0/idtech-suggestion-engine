@@ -144,6 +144,11 @@ function App() {
           name: hw.name ?? "Product",
           sku: (hw.technical_specs?.model_name as string) ?? "",
           description: resp.recommendation.explanation ?? hw.role,
+          product_url: hw.product_url,
+          installation_docs: resp.recommendation.installation_docs?.map((d) => ({
+            title: d.title,
+            url: d.url,
+          })),
         };
         botMsg.product = product;
       }

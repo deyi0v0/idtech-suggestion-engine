@@ -7,6 +7,8 @@ export interface Product {
   name: string;
   sku: string;
   description: string;
+  product_url?: string;
+  installation_docs?: Array<{ title: string; url: string }>;
 }
 
 export interface Message {

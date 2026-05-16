@@ -9,6 +9,7 @@ from typing import Any, Dict, List
 
 from ...db.session import SessionLocal
 from ...engine.rulesEngine.product_filtering import product_filtering
+from ._product_url import get_product_url
 
 
 def search_products(
@@ -57,8 +58,10 @@ def search_products(
     products = []
     for row in rows[:5]:  # Return top 5 to avoid flooding context
         specs = row.get("technical_specs", {})
+        model_name = row.get("hardware_name", specs.get("model_name", "Unknown"))
         products.append({
-            "model_name": row.get("hardware_name", specs.get("model_name", "Unknown")),
+            "model_name": model_name,
+            "product_url": get_product_url(model_name),
             "compatible_software": row.get("compatible_software", []),
             "highlights": row.get("highlights", []),
             "key_specs": {
