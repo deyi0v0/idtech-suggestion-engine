@@ -95,10 +95,10 @@ STAGE_INSTRUCTIONS: Dict[str, str] = {
         "After presenting, ask if they'd like to share their contact info so a sales rep can follow up."
     ),
     "lead_capture": (
-        "Ask for their first name, last name, email, and phone number — all at once. "
+        "Ask for their first name, last name, email, company name, and phone number — all at once. "
         "Present them as bolded bullet points so they know exactly what's needed. "
         "Once you have name and email, call submit_lead. "
-        "Phone is optional but helpful. "
+        "Company name and phone are optional but helpful. "
         "Let them know a sales rep will follow up after submission."
     ),
     "complete": (

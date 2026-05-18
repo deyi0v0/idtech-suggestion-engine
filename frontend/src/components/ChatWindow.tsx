@@ -74,7 +74,7 @@ export default function ChatWindow({
       {/* Escalation strip */}
       <div className="flex items-center gap-1 px-4 py-2 border-t" style={{ borderColor: "var(--border)" }}>
         <span className="text-xs text-secondary">Can't find what you need?</span>
-        <a href="mailto:support@idtechproducts.com" className="text-xs" style={{ color: "var(--accent)" }}>
+        <a href="mailto:sales@idtechproducts.com" className="text-xs" style={{ color: "var(--accent)" }}>
           Email our team →
         </a>
       </div>
