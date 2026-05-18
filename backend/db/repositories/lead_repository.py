@@ -1,5 +1,6 @@
-from typing import Optional
+from typing import List, Optional, Sequence
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..models.lead import Lead
@@ -33,3 +34,18 @@ class LeadRepository:
         self.db.commit()
         self.db.refresh(lead)
         return lead
+
+    def list_leads(self, limit: int = 100, offset: int = 0) -> Sequence[Lead]:
+        """List leads ordered by most recent first."""
+        stmt = (
+            select(Lead)
+            .order_by(Lead.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        return self.db.execute(stmt).scalars().all()
+
+    def get_lead(self, lead_id: int) -> Optional[Lead]:
+        """Get a single lead by ID."""
+        stmt = select(Lead).where(Lead.id == lead_id)
+        return self.db.execute(stmt).scalar_one_or_none()

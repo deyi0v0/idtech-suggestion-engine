@@ -5,6 +5,7 @@ import HardwareManager from "./pages/maintenance/HardwareManager"
 import SoftwareManager from "./pages/maintenance/SoftwareManager"
 import PromptManager from "./pages/maintenance/PromptManager"
 import DocManager from "./pages/maintenance/DocManager"
+import LeadsManager from "./pages/maintenance/LeadsManager"
 import ChatWindow from "./components/ChatWindow"
 import DebugPanel from "./components/DebugPanel"
 import type { Message, Product } from "./types/messages"
@@ -186,6 +187,7 @@ function App() {
         } />
 
         <Route path="/admin" element={<Dashboard />} />
+        <Route path="/admin/leads" element={<LeadsManager />} />
         <Route path="/admin/hardware" element={<HardwareManager />} />
         <Route path="/admin/software" element={<SoftwareManager />} />
         <Route path="/admin/prompts" element={<PromptManager />} />
