@@ -82,6 +82,6 @@ def submit_lead(
         "lead_id": result.get("id"),
         "message": (
             f"Thanks, {name}! Your information has been sent to our sales team. "
-            f"A specialist will follow up with you at {email} within 1-2 business days."
+            f"A sales rep will follow up with you at {email} within 1-2 business days."
         ),
     }

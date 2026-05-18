@@ -24,7 +24,7 @@ _vertical_map_path = os.path.join(_knowledge_dir, "vertical_map.json")
 _vertical_map: Dict[str, Any] | None = None
 
 
-def _load_vertical_map() -> Dict[str, Any]:
+def _load_vertical_map() -> Dict[str, Any] | None:
     global _vertical_map
     if _vertical_map is None:
         try:
@@ -92,13 +92,14 @@ STAGE_INSTRUCTIONS: Dict[str, str] = {
     "recommending": (
         "You've found matching products. Present the top 1-2 and explain why they fit "
         "the prospect's specific situation. Don't list every feature. "
-        "After presenting, ask if they'd like to share their contact info so a specialist can follow up."
+        "After presenting, ask if they'd like to share their contact info so a sales rep can follow up."
     ),
     "lead_capture": (
-        "Ask for their name and email — one field at a time. "
-        "Once you have both, call submit_lead. "
-        "Company and phone help but aren't required. "
-        "Let them know a specialist will follow up after submission."
+        "Ask for their first name, last name, email, and phone number — all at once. "
+        "Present them as bolded bullet points so they know exactly what's needed. "
+        "Once you have name and email, call submit_lead. "
+        "Phone is optional but helpful. "
+        "Let them know a sales rep will follow up after submission."
     ),
     "complete": (
         "The lead has been submitted. The conversation is effectively done. "

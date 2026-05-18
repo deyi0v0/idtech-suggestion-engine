@@ -10,8 +10,9 @@ from backend.llm.contracts import ChatResponse
 router = APIRouter()
 
 WELCOME_MESSAGE = (
-    "Hi, I'm the ID TECH solutions assistant. I can help match you with the right "
-    "payment hardware. What industry or use case are you working on?"
+    "Hi, I'm ID TECH Agent! I can help answer your questions "
+    "and connect you with our sales experts. Ask me things like 'Can I chat with a sales "
+    "expert?' or describe your business and use case!"
 )
 
 

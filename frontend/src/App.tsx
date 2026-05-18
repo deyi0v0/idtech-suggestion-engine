@@ -173,16 +173,15 @@ function App() {
       <Routes>
         <Route path="/" element={
           <div className="flex flex-col items-center">
-            <button
+            {/* <button
               type="button"
               onClick={() => setIsLightTheme((prev) => !prev)}
               className="fixed left-4 top-4 z-50 rounded-full border px-3 py-1 text-xs text-primary chat-bg"
               style={{ borderColor: "var(--border)" }}
             >
               {isLightTheme ? "Dark Mode" : "Light Mode"}
-            </button>
+            </button> */}
             <ChatWindow messages={messages} onSend={onSend} isTyping={isTyping} disabled={disabled} />
-      <DebugPanel collectedInfo={collectedInfo} nextState={nextState} messageCount={messages.length} />
           </div>
         } />
 

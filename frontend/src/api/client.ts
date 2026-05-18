@@ -18,6 +18,7 @@ export interface HardwareRecommendation {
   name: string;
   role: string;
   technical_specs?: Record<string, unknown>;
+  product_url?: string;
 }
 
 export interface SoftwareRecommendation {

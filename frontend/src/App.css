@@ -9,7 +9,7 @@ body {
 :root {
     --bg: #0B0C0D;
     --panel-bg: #0B0C0D;
-    --bubble-user-bg: #2B2B2B;
+    --bubble-user-bg: #1F3026;
     --text-primary: #e5e7eb;
     --text-secondary: #9ca3af;
     --accent: #03A60E;
@@ -23,7 +23,7 @@ body {
 .light-theme {
     --bg: #F8FAFC;
     --panel-bg: #F8FAFC;
-    --bubble-user-bg: #F1F5F9;
+    --bubble-user-bg: #EDF7F1;
     --text-primary: #0B1220;
     --text-secondary: #4B5563;
     --accent: #03A60E;

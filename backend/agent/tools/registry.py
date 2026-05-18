@@ -173,7 +173,7 @@ ESCALATE_TO_SALES_TOOL: Dict[str, Any] = {
     "function": {
         "name": "escalate_to_sales",
         "description": (
-            "Immediately escalate the conversation to a human sales specialist. "
+            "Immediately escalate the conversation to a sales rep. "
             "Use this when the customer explicitly asks to speak to someone, "
             "has a complex or sensitive question you cannot answer, or is "
             "frustrated. Submits their contact info and flags the lead as urgent."

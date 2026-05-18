@@ -7,7 +7,6 @@ Model names are slugified: spaces → hyphens, lowercase, no special chars.
 Examples:
     VP3300     → https://idtechproducts.com/product/vp3300/
     MiniMag II → https://idtechproducts.com/product/minimag-ii/
-    VP5300     → https://idtechproducts.com/product/vp5300/
 """
 
 import os

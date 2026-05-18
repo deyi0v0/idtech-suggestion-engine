@@ -52,7 +52,7 @@ def answer_faq(topic: str) -> Dict[str, Any]:
                 match = value
                 break
         if not match:
-            entry = topics.get("general", {"answer": "A specialist can help with that. Would you like me to connect you?"})
+            entry = topics.get("general", {"answer": "A sales rep can help with that. Would you like me to connect you?"})
         else:
             entry = match
 

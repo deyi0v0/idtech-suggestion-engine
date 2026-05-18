@@ -19,7 +19,7 @@ def escalate_to_sales(
     session: ConversationSession | None = None,
 ) -> Dict[str, Any]:
     """
-    Escalate the conversation to a human sales specialist.
+    Escalate the conversation to a sales rep.
 
     Submits whatever contact info is available and flags as urgent.
 
@@ -71,7 +71,7 @@ def escalate_to_sales(
         "lead_id": result.get("id"),
         "message": (
             f"I've flagged your inquiry as urgent, {customer_name}. "
-            f"A senior specialist will reach out within a few hours. "
+            f"A senior sales rep will reach out within a few hours. "
             f"Reason noted: {reason}"
         ),
     }

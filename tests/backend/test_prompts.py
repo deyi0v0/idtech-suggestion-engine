@@ -248,7 +248,7 @@ class TestBuildSystemPrompt:
         prompt = build_system_prompt(session)
 
         # Should include the personality section
-        assert "Your Personality" in prompt or "You are a sales specialist" in prompt
+        assert "Your Personality" in prompt or "You are a sales rep" in prompt
 
         # Should include hard rules
         assert "Hard Rules" in prompt

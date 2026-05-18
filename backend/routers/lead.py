@@ -32,6 +32,6 @@ async def request_call(
     )
     return {
         "success": True,
-        "message": "Thanks! A specialist will reach out to you shortly.",
+        "message": "Thanks! A sales rep will reach out to you shortly.",
         "lead_id": result["id"],
     }

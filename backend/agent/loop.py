@@ -187,7 +187,7 @@ def process_message(message: str, session: ConversationSession) -> ChatResponse:
     if intent == "faq" and _has_only_faq_intent(message):
         # Direct FAQ answer without full agent loop
         result = _answer_faq(topic=_detect_faq_topic(message))
-        text = result.get("answer", "A specialist can help with that. Would you like me to connect you?")
+        text = result.get("answer", "A sales rep can help with that. Would you like me to connect you?")
         trace.response_generated("clarification", text)
         session.history.append({"role": "user", "content": message})
         session.history.append({"role": "assistant", "content": text})

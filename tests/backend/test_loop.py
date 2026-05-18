@@ -235,14 +235,14 @@ class TestProcessMessageEscalate:
         mock_escalate.return_value = {
             "status": "escalated",
             "lead_id": 1,
-            "message": "A senior specialist will reach out.",
+            "message": "A senior sales rep will reach out.",
         }
 
         session = ConversationSession(id="test")
         response = _run_process_message("I need to talk to a manager", session)
 
         assert response.type == "clarification"
-        assert "sales" in response.text.lower() or "specialist" in response.text.lower()
+        assert "sales" in response.text.lower() or "rep" in response.text.lower()
         assert response.next_state == ConversationState.HANDOFF
         assert "offer_booking" in (response.ui_actions or [])
 
