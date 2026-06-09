@@ -1,37 +1,65 @@
-import ColorButton from "./components/ColorButton";
+import { Link } from "react-router-dom";
+
+const sections = [
+  {
+    href: "/admin/leads",
+    label: "Manage Leads",
+    description: "Review captured lead records and follow-up details.",
+  },
+  {
+    href: "/admin/hardware",
+    label: "Manage Hardware",
+    description: "Edit the hardware catalog used in recommendations.",
+  },
+  {
+    href: "/admin/software",
+    label: "Manage Software",
+    description: "Update supported software options.",
+  },
+  {
+    href: "/admin/categories",
+    label: "Manage Categories",
+    description: "Maintain hardware classification groups.",
+  },
+  {
+    href: "/admin/use-cases",
+    label: "Manage Use Cases",
+    description: "Curate the use cases tied to recommendations.",
+  },
+  {
+    href: "/admin/prompts",
+    label: "Manage Prompts",
+    description: "Inspect prompt tooling and future prompt management.",
+  },
+  {
+    href: "/admin/docs",
+    label: "Manage Docs",
+    description: "Inspect documentation tooling and future document management.",
+  },
+];
 
 export default function Dashboard() {
-    return (
-        <div className='flex flex-col p-0 text-black grow'>
-            <div>
-                <h1 className="font-semibold text-2xl max-h-fit">
-                    Solution List - Hardware
-                </h1>
-                <p>
-                    This is a list of the current devices that the AI is able to recommend,
-                    as well as attributes that the AI model uses to recommend a device.
-                </p>
-            </div>
-            <br />
-            <div className="flex min-h-fit min-w-fit">
-                <ColorButton color="#03A50E" onClick={() => console.log("button clicked!")}>
-                    Submit
-                </ColorButton>
-                <ColorButton color="#DF1300" onClick={() => console.log("button clicked!")}>
-                    Back
-                </ColorButton>
-            </div>
+  return (
+    <div className="flex flex-col gap-6 text-black grow">
+      <div>
+        <h1 className="text-2xl font-semibold">Admin Dashboard</h1>
+        <p className="text-sm text-gray-600">
+          Choose a maintenance area to update the catalog, review leads, or inspect supporting content.
+        </p>
+      </div>
 
-            {/*
-            The below div will contain a table of the devices that the AI can recommend, 
-            as well as attributes that the AI model uses to recommend a device.
-            
-            it will be fetched from the 
-            */}
-            <div className="flex flex-col bg-amber-300 grow-1">
-                <h1 className="font-semibold text-2xl max-h-fit">hi</h1>
-            </div>
-
-        </div>
-    );
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {sections.map((section) => (
+          <Link
+            key={section.href}
+            to={section.href}
+            className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition hover:border-[#02AF6E] hover:shadow-md"
+          >
+            <h2 className="text-lg font-semibold text-[#01784B]">{section.label}</h2>
+            <p className="mt-2 text-sm text-gray-600">{section.description}</p>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
 }

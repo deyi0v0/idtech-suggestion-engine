@@ -35,7 +35,36 @@ def product_filtering(db: Session, constraints: Dict[str, Any]) -> List[Dict[str
             is_standalone=constraints.get("is_standalone")
         )
 
-    # 3. Format the result into rich JSON for the LLM
+    # 3. Relax extra_specs text filter if still no results.
+    if not hardware_list and constraints.get("extra_specs_filter"):
+        hardware_list = repo.find_products(
+            category=constraints.get("category"),
+            use_case=constraints.get("use_case"),
+            input_power=constraints.get("input_power"),
+            interface=constraints.get("interface"),
+            temp=constraints.get("operate_temperature"),
+            extra_filter=None,
+            query=constraints.get("search_query"),
+            is_outdoor=constraints.get("is_outdoor"),
+            is_standalone=constraints.get("is_standalone")
+        )
+
+    # 4. Relax interface if still no results (common when merchant gives high-level
+    # interface needs before exact integration details are known).
+    if not hardware_list and constraints.get("interface"):
+        hardware_list = repo.find_products(
+            category=constraints.get("category"),
+            use_case=constraints.get("use_case"),
+            input_power=constraints.get("input_power"),
+            interface=None,
+            temp=constraints.get("operate_temperature"),
+            extra_filter=None,
+            query=constraints.get("search_query"),
+            is_outdoor=constraints.get("is_outdoor"),
+            is_standalone=constraints.get("is_standalone")
+        )
+
+    # 5. Format the result into rich JSON for the LLM
     results = []
     for h in hardware_list:
         results.append({
