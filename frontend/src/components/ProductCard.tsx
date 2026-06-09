@@ -1,7 +1,4 @@
-import { useState } from "react";
 import type { Product } from "../types/messages";
-import GenericButton from "./GenericButton";
-import { downloadRecommendationPDF, RecommendationBundle } from "../api/client";
 
 interface ProductCardProps {
   product: Product;
