@@ -156,3 +156,15 @@ pytest ../tests/backend
 cd frontend
 npm test
 ```
+
+Deployment
+This project is currently local-only. The application runs via Docker Compose on any machine with Docker installed. ID TECH Products has agreed to handle production deployment on their end.
+
+Demo Video
+A walkthrough of the full system is available here: [insert demo video]
+
+Known Limitations
+- The maintenance portal edits the live database directly. A staging area for testing changes before deployment is mocked up in Figma but not implemented.
+- The chatbot does not currently route users to ID TECH product pages automatically — it provides links the user must click.
+- The recommendation engine relies on data quality in the hardware table. Inconsistent fields across product datasheets are partially mitigated by the `extra_specs` JSONB column, but normalization of fields like operating temperature would enable more precise filtering.
+- No real-time handoff to ID TECH sales reps; leads are collected and forwarded via email.
